@@ -74,6 +74,11 @@ entropy_coeff: 0
 # Whether to use KL loss instead of KL reward penalty. True for GRPO
 use_kl_loss: false
 
+# test
+target_entropy: 0.5 # target entropy for adaptive entropy control in Skywork-OR1-32B
+use_adaptive_entropy_adjustment: True # adaptive entropy control in Skywork-OR1-32B
+entropy_coeff_delta: 0.00005 # entropy_coeff_delta for adaptive entropy control in Skywork-OR1-32B
+
 # Whether to use torch.compile()
 # oc.select: the default val for ref.use_torch_compile
 use_torch_compile: true

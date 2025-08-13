@@ -20,6 +20,7 @@ import os
 import re
 from collections import defaultdict
 from typing import Optional
+import pandas as pd
 
 import datasets
 import numpy as np
@@ -131,10 +132,18 @@ class RLHFDataset(Dataset):
     def _read_files_and_tokenize(self):
         dataframes = []
         for parquet_file in self.data_files:
+            if parquet_file.endswith(".pkl"):
+                dataframe = pd.read_pickle(parquet_file)
+                if not isinstance(dataframe, pd.core.frame.DataFrame):
+                    dataframe = pd.DataFrame(dataframe)
+            else:
+                dataframe = pd.read_parquet(parquet_file)
             # read parquet files and cache
-            dataframe = datasets.load_dataset("parquet", data_files=parquet_file)["train"]
+            # dataframe = datasets.load_dataset("parquet", data_files=parquet_file)["train"]
             dataframes.append(dataframe)
-        self.dataframe: datasets.Dataset = datasets.concatenate_datasets(dataframes)
+        self.dataframe = pd.concat(dataframes)
+        # self.dataframe: datasets.Dataset = datasets.concatenate_datasets(dataframes)
+        self.dataframe: datasets.Dataset = datasets.Dataset.from_pandas(self.dataframe)
 
         print(f"dataset len: {len(self.dataframe)}")
 
