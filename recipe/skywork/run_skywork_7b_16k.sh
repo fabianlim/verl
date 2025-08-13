@@ -46,7 +46,8 @@ if [ -z "$CODE_PATH" ]; then
 fi
 
 # Since math queries are much more than code queries, we duplicate the math data when mixing the datasets
-train_files="[\"$CODE_PATH/or1_data/train/train_7b_code.pkl\",\"$CODE_PATH/or1_data/train/train_7b_code.pkl\",\"$CODE_PATH/or1_data/train/train_7b_math.pkl\"]"
+#train_files="[\"$CODE_PATH/or1_data/train/train_7b_code.pkl\",\"$CODE_PATH/or1_data/train/train_7b_code.pkl\",\"$CODE_PATH/or1_data/train/train_7b_math.pkl\"]"
+train_files="[\"$CODE_PATH/or1_data/train/train_7b_math.pkl\"]"
 test_files="[\"$CODE_PATH/or1_data/eval/aime24.parquet\",\"$CODE_PATH/or1_data/eval/aime25.parquet\"]"
 
 PROJECT_NAME=skywork-or1-train
@@ -93,6 +94,8 @@ python3 -m recipe.dapo.main_dapo \
     actor_rollout_ref.rollout.tensor_model_parallel_size=$TP \
     actor_rollout_ref.rollout.name=vllm \
     actor_rollout_ref.rollout.temperature=$TRAIN_TEMPERATURE \
+    actor_rollout_ref.rollout.enable_chunked_prefill=True \
+    actor_rollout_ref.rollout.max_num_batched_tokens=$MAX_TOKEN_LEN \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.8 \
     actor_rollout_ref.rollout.n=$GROUP_SIZE \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
