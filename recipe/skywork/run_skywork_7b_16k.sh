@@ -16,12 +16,12 @@ TGT_ENTROPY=0.2
 # MIN_ENT_COEF=0
 DELTA_ENT_COEF=0.0001
 
-ROLLOUT_BATCH_SIZE=256
+ROLLOUT_BATCH_SIZE=32
 PPO_MINI_BATCH=256
 MAX_PROMPT_LENGTH=2048
-RES_LENGTH=8192
+RES_LENGTH=16384
 GROUP_SIZE=1
-N_VAL_SAMPLES=8 # REMOVED
+N_VAL_SAMPLES=8
 
 enable_filter_groups=True
 filter_groups_metric=acc
@@ -99,6 +99,7 @@ python3 -m recipe.dapo.main_dapo \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.8 \
     actor_rollout_ref.rollout.n=$GROUP_SIZE \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
+    reward_model.reward_manager=yr \
     trainer.logger=['console'] \
     trainer.project_name=$PROJECT_NAME \
     trainer.experiment_name=$EXP_NAME \
