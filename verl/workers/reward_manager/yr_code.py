@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
+from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 
@@ -24,6 +24,8 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
 from functools import partial
 import numpy as np
+from verl.utils.reward_score.livecodebench import compute_score as code_compute_score
+
 def parallel_compute_score(evaluation_func, response_str, ground_truth, data_sources, timeout=6, max_workers=64):
 
     with tqdm(total=len(response_str)) as pbar:
@@ -54,19 +56,20 @@ class YRRewardManager:
     ) -> None:
         self.tokenizer = tokenizer
         self.num_examine = num_examine  # the number of batches of decoded responses to print to the console
-        self.compute_score = compute_score
+        # OVERRIDE!!
+        self.compute_score = code_compute_score
         self.compute_score = partial(self.compute_score, is_long_penalty=is_long_penalty, is_binary_reward=is_binary_reward, is_power4_reward=is_power4_reward)
         
         
     def __call__(self, data: DataProto, return_dict: bool = False):
         """We will expand this function gradually based on the available datasets"""
-        breakpoint()
 
         # If there is rm score, we directly return rm score. Otherwise, we compute via rm_score_fn
         if 'rm_scores' in data.batch.keys():
             return data.batch['rm_scores']
 
         reward_tensor = torch.zeros_like(data.batch['responses'], dtype=torch.float32)
+        reward_extra_info = defaultdict(list)
 
         already_print_data_sources = {}
 
@@ -115,4 +118,13 @@ class YRRewardManager:
                 already_print_data_sources[data_source] += 1
                 print("[response]", response_str[i])
 
-        return reward_tensor
+
+        reward_extra_info["acc"] = scores
+
+        if return_dict:
+            return {
+                "reward_tensor": reward_tensor,
+                "reward_extra_info": reward_extra_info,
+            }
+        else:
+            return reward_tensor

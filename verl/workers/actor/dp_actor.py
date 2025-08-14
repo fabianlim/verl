@@ -449,7 +449,7 @@ class DataParallelPPOActor(BasePPOActor):
                         if entropy_loss.detach().item() > target_entropy:
                             entropy_coeff = 0
                         else:
-                            self.config.entropy_coeff += entropy_coeff_delta
+                            self.config.__dict__['entropy_coeff'] += entropy_coeff_delta
                             entropy_coeff = self.config.entropy_coeff
                         # compute policy loss
                         if entropy_coeff != 0:
