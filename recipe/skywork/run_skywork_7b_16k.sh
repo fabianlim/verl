@@ -16,11 +16,11 @@ TGT_ENTROPY=0.2
 # MIN_ENT_COEF=0
 DELTA_ENT_COEF=0.0001
 
-ROLLOUT_BATCH_SIZE=32
+ROLLOUT_BATCH_SIZE=256
 PPO_MINI_BATCH=256
 MAX_PROMPT_LENGTH=2048
 RES_LENGTH=16384
-GROUP_SIZE=1
+GROUP_SIZE=16
 N_VAL_SAMPLES=8
 
 enable_filter_groups=True
@@ -28,6 +28,9 @@ filter_groups_metric=acc
 max_num_gen_batches=10
 
 TRAIN_TEMPERATURE=1.0
+VAL_TEMPERATURE=0.6
+TOP_P=1.0
+TOP_K=-1 # 0 for HF rollout, -1 for vLLM rollout
 
 TP=1
 SP=1
@@ -82,6 +85,8 @@ python3 -m recipe.dapo.main_dapo \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.actor.entropy_coeff=$ENTROPY_COEFF \
     actor_rollout_ref.actor.ppo_mini_batch_size=$PPO_MINI_BATCH \
+    actor_rollout_ref.actor.grad_clip=1.0 \
+    actor_rollout_ref.actor.loss_agg_mode=token-mean \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=True \
     actor_rollout_ref.actor.fsdp_config.param_offload=True \
@@ -94,16 +99,23 @@ python3 -m recipe.dapo.main_dapo \
     actor_rollout_ref.rollout.tensor_model_parallel_size=$TP \
     actor_rollout_ref.rollout.name=vllm \
     actor_rollout_ref.rollout.temperature=$TRAIN_TEMPERATURE \
+    actor_rollout_ref.rollout.top_p=${TOP_P} \
+    actor_rollout_ref.rollout.top_k="${TOP_K}" \
     actor_rollout_ref.rollout.enable_chunked_prefill=True \
     actor_rollout_ref.rollout.max_num_batched_tokens=$MAX_TOKEN_LEN \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.8 \
     actor_rollout_ref.rollout.n=$GROUP_SIZE \
+    actor_rollout_ref.rollout.val_kwargs.temperature=${VAL_TEMPERATURE} \
+    actor_rollout_ref.rollout.val_kwargs.top_p=${TOP_P} \
+    actor_rollout_ref.rollout.val_kwargs.top_k=${TOP_K} \
+    actor_rollout_ref.rollout.val_kwargs.do_sample=True \
+    actor_rollout_ref.rollout.val_kwargs.n=${N_VAL_SAMPLES} \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
     reward_model.reward_manager=yr \
-    trainer.logger=['console'] \
+    trainer.logger=['console','wandb'] \
     trainer.project_name=$PROJECT_NAME \
     trainer.experiment_name=$EXP_NAME \
-    trainer.val_before_train=False \
+    trainer.val_before_train=True \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=$WORLD_SIZE \
     trainer.save_freq=20 \

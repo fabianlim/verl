@@ -24,14 +24,19 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
 from functools import partial
 import numpy as np
-from verl.utils.reward_score.livecodebench import compute_score as code_compute_score
+from verl.utils.reward_score.skywork import compute_score as code_compute_score
 
 def parallel_compute_score(evaluation_func, response_str, ground_truth, data_sources, timeout=6, max_workers=64):
 
     with tqdm(total=len(response_str)) as pbar:
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = {
-                executor.submit(evaluation_func, response_str[index], ground_truth[index], data_sources[index]): index
+                executor.submit(
+                    evaluation_func, 
+                    response_str[index], 
+                    ground_truth[index], 
+                    data_sources[index]
+                ): index
                 for index in range(len(response_str))
             }
             results = {}
@@ -79,25 +84,30 @@ class YRRewardManager:
         response_ids = data.batch['responses']
         valid_response_length = data.batch['attention_mask'][:, prompt_length:].sum(dim=-1)
         response_str = self.tokenizer.batch_decode(response_ids, skip_special_tokens=True)
-        ground_truth = [(data_item.non_tensor_batch['reward_model']['ground_truth'] if 'livecodebench' not in data_item.non_tensor_batch['data_source'] else data_item.non_tensor_batch['extra_info']) for data_item in data]
+        ground_truth = [
+            (
+                data_item.non_tensor_batch['reward_model']['ground_truth'] 
+                if 'livecodebench' not in data_item.non_tensor_batch['data_source'] 
+                else data_item.non_tensor_batch['extra_info']
+            ) 
+            for data_item in data
+        ]
         ground_truth = [x.tolist() if isinstance(x, np.ndarray) else x for x in ground_truth]
         data_sources = data.non_tensor_batch['data_source']
 
         assert len(response_str) == len(ground_truth) == len(data_sources)
 
-
         scores = []
+        batch_size = 1024
         try:
-            for i in range(0, len(response_str), 1024):
-                cur_response_str = response_str[i:i+1024]
-                cur_ground_truth = ground_truth[i:i+1024]
-                cur_data_sources = data_sources[i:i+1024]
+            for i in range(0, len(response_str), batch_size):
+                cur_response_str = response_str[i:i+batch_size]
+                cur_ground_truth = ground_truth[i:i+batch_size]
 
                 cur_scores = parallel_compute_score(
                         self.compute_score,
                         cur_response_str,
                         cur_ground_truth,
-                        cur_data_sources,
                     )
 
                 scores += cur_scores
