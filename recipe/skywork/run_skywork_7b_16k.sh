@@ -66,6 +66,8 @@ mkdir -p $SAVE_STATS_DIR
 python3 -m recipe.dapo.main_dapo \
     algorithm.adv_estimator=grpo \
     data.train_files=$train_files \
+    data.prompt_key=prompt \
+    data.truncation='left' \
     data.val_files=$test_files \
     data.train_batch_size=$ROLLOUT_BATCH_SIZE \
     data.val_batch_size=13000 \
