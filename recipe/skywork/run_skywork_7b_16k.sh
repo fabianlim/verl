@@ -49,8 +49,7 @@ if [ -z "$CODE_PATH" ]; then
 fi
 
 # Since math queries are much more than code queries, we duplicate the math data when mixing the datasets
-#train_files="[\"$CODE_PATH/or1_data/train/train_7b_code.pkl\",\"$CODE_PATH/or1_data/train/train_7b_code.pkl\",\"$CODE_PATH/or1_data/train/train_7b_math.pkl\"]"
-train_files="[\"$CODE_PATH/or1_data/train/train_7b_math.pkl\"]"
+train_files="[\"$CODE_PATH/or1_data/train/train_7b_code.parquet\",\"$CODE_PATH/or1_data/train/train_7b_code.parquet\",\"$CODE_PATH/or1_data/train/train_7b_math.parquet\"]"
 test_files="[\"$CODE_PATH/or1_data/eval/aime24.parquet\",\"$CODE_PATH/or1_data/eval/aime25.parquet\"]"
 
 PROJECT_NAME=skywork-or1-train
@@ -112,10 +111,10 @@ python3 -m recipe.dapo.main_dapo \
     actor_rollout_ref.rollout.val_kwargs.n=${N_VAL_SAMPLES} \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
     reward_model.reward_manager=yr \
-    trainer.logger=['console','wandb'] \
+    trainer.logger=['console'] \
     trainer.project_name=$PROJECT_NAME \
     trainer.experiment_name=$EXP_NAME \
-    trainer.val_before_train=True \
+    trainer.val_before_train=False \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=$WORLD_SIZE \
     trainer.save_freq=20 \
