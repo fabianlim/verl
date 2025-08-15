@@ -13,8 +13,6 @@
 # limitations under the License.
 
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor
-from functools import partial
 
 import torch
 
@@ -22,11 +20,16 @@ from verl import DataProto
 from verl.workers.reward_manager import register
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
-from functools import partial
 import numpy as np
 from verl.utils.reward_score.skywork import compute_score as code_compute_score
 
-def parallel_compute_score(evaluation_func, response_str, ground_truth, data_sources, timeout=6, max_workers=64):
+def parallel_compute_score(
+    evaluation_func, 
+    response_str, 
+    ground_truth, 
+    timeout=6, 
+    max_workers=64
+):
 
     with tqdm(total=len(response_str)) as pbar:
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
@@ -35,7 +38,6 @@ def parallel_compute_score(evaluation_func, response_str, ground_truth, data_sou
                     evaluation_func, 
                     response_str[index], 
                     ground_truth[index], 
-                    data_sources[index]
                 ): index
                 for index in range(len(response_str))
             }
@@ -54,17 +56,12 @@ class YRRewardManager:
     def __init__(
         self, tokenizer, num_examine, 
         compute_score=None, 
-        is_long_penalty=False, 
-        is_binary_reward=True, 
-        is_power4_reward=False,
         **kwargs,
     ) -> None:
         self.tokenizer = tokenizer
         self.num_examine = num_examine  # the number of batches of decoded responses to print to the console
         # OVERRIDE!!
         self.compute_score = code_compute_score
-        self.compute_score = partial(self.compute_score, is_long_penalty=is_long_penalty, is_binary_reward=is_binary_reward, is_power4_reward=is_power4_reward)
-        
         
     def __call__(self, data: DataProto, return_dict: bool = False):
         """We will expand this function gradually based on the available datasets"""
@@ -85,11 +82,7 @@ class YRRewardManager:
         valid_response_length = data.batch['attention_mask'][:, prompt_length:].sum(dim=-1)
         response_str = self.tokenizer.batch_decode(response_ids, skip_special_tokens=True)
         ground_truth = [
-            (
-                data_item.non_tensor_batch['reward_model']['ground_truth'] 
-                if 'livecodebench' not in data_item.non_tensor_batch['data_source'] 
-                else data_item.non_tensor_batch['extra_info']
-            ) 
+            data_item.non_tensor_batch['reward_model']['ground_truth'] 
             for data_item in data
         ]
         ground_truth = [x.tolist() if isinstance(x, np.ndarray) else x for x in ground_truth]

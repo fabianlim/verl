@@ -146,11 +146,17 @@ def compute_score(
     else:
         solution_str = completion
 
-    # clear out all the None
-    ground_truth = {
-        k:v for k, v in ground_truth.items() 
-        if v is not None
-    }
+    if isinstance(ground_truth, str):
+        # if its string, assume its math 
+        ground_truth = {
+            'math_verify': ground_truth
+        }
+    elif isinstance(ground_truth, dict):
+        # clear do some book keeping
+        ground_truth = {
+            k:v for k, v in ground_truth.items() 
+            if v is not None
+        }
 
     try:
         # if its math

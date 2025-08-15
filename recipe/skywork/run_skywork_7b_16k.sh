@@ -111,10 +111,10 @@ python3 -m recipe.dapo.main_dapo \
     actor_rollout_ref.rollout.val_kwargs.n=${N_VAL_SAMPLES} \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
     reward_model.reward_manager=yr \
-    trainer.logger=['console'] \
+    trainer.logger=['console','wandb'] \
     trainer.project_name=$PROJECT_NAME \
     trainer.experiment_name=$EXP_NAME \
-    trainer.val_before_train=False \
+    trainer.val_before_train=True \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=$WORLD_SIZE \
     trainer.save_freq=20 \

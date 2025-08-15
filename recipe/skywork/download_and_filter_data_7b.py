@@ -22,7 +22,6 @@ import datasets
 from verl.utils.hdfs_io import copy, makedirs
 import argparse
 import json
-import pickle
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
