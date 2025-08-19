@@ -410,6 +410,12 @@ class DataParallelPPOActor(BasePPOActor):
 
                     entropy_coeff = self.config.entropy_coeff
                     loss_agg_mode = self.config.loss_agg_mode
+                    use_adaptive_entropy_adjustment = self.config.get("use_adaptive_entropy_adjustment", False)
+                    target_entropy = self.config.get("target_entropy", None)
+                    entropy_coeff_delta = self.config.get("entropy_coeff_delta", None)
+                    if use_adaptive_entropy_adjustment:
+                        assert target_entropy is not None, f"target_entropy must be provided if {use_adaptive_entropy_adjustment=}, but got None."
+                        assert entropy_coeff_delta is not None, f"entropy_coeff_delta must be provided if {use_adaptive_entropy_adjustment=}, but got None."
 
                     if self.config.use_dynamic_bsz:
                         loss_scale_factor = response_mask.shape[0] / self.config.ppo_mini_batch_size
@@ -418,7 +424,7 @@ class DataParallelPPOActor(BasePPOActor):
 
                     # all return: (bsz, response_length)
                     calculate_entropy = False
-                    if entropy_coeff != 0:
+                    if entropy_coeff != 0 or use_adaptive_entropy_adjustment:
                         calculate_entropy = True
                     entropy, log_prob = self._forward_micro_batch(
                         model_inputs, temperature=temperature, calculate_entropy=calculate_entropy
@@ -438,13 +444,26 @@ class DataParallelPPOActor(BasePPOActor):
                         config=self.config,
                     )
 
-                    if entropy_coeff != 0:
+                    if use_adaptive_entropy_adjustment:
                         entropy_loss = agg_loss(loss_mat=entropy, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
-
+                        if entropy_loss.detach().item() > target_entropy:
+                            entropy_coeff = 0
+                        else:
+                            self.config.__dict__['entropy_coeff'] += entropy_coeff_delta
+                            entropy_coeff = self.config.entropy_coeff
                         # compute policy loss
-                        policy_loss = pg_loss - entropy_loss * entropy_coeff
+                        if entropy_coeff != 0:
+                            policy_loss = pg_loss - entropy_loss * entropy_coeff
+                        else:
+                            policy_loss = pg_loss
+                        metrics["actor/entropy_coeff"] = entropy_coeff
+                        metrics["actor/entropy_loss"] = entropy_loss.detach().item()
                     else:
-                        policy_loss = pg_loss
+                        if entropy_coeff == 0:
+                            policy_loss = pg_loss
+                        else:
+                            entropy_loss = agg_loss(loss_mat=entropy, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
+                            policy_loss = pg_loss - entropy_loss * entropy_coeff
 
                     if self.config.use_kl_loss:
                         ref_log_prob = model_inputs["ref_log_prob"]
@@ -455,7 +474,7 @@ class DataParallelPPOActor(BasePPOActor):
                         kl_loss = agg_loss(loss_mat=kld, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
 
                         policy_loss = policy_loss + kl_loss * self.config.kl_loss_coef
-                        micro_batch_metrics["actor/kl_loss"] = kl_loss.detach().item() * loss_scale_factor
+                        micro_batch_metrics["actor/kl_loss"] = kl_loss.detach().item()
                         micro_batch_metrics["actor/kl_coef"] = self.config.kl_loss_coef
 
                     if self.config.use_dynamic_bsz:
@@ -467,7 +486,7 @@ class DataParallelPPOActor(BasePPOActor):
 
                     micro_batch_metrics.update(
                         {
-                            "actor/pg_loss": pg_loss.detach().item() * loss_scale_factor,
+                            "actor/pg_loss": pg_loss.detach().item(),
                             "actor/pg_clipfrac": pg_clipfrac.detach().item(),
                             "actor/ppo_kl": ppo_kl.detach().item(),
                             "actor/pg_clipfrac_lower": pg_clipfrac_lower.detach().item(),
