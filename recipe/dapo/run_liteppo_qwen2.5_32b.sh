@@ -52,6 +52,11 @@ infer_ppo_max_token_len=$((max_prompt_length + max_response_length))
 offload=True
 gen_tp=4
 
+# actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu
+# actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu
+# actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu
+
+
 ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     --working-dir "${WORKING_DIR}" \
     --submission-id run_32b \
@@ -66,6 +71,7 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     actor_rollout_ref.rollout.n=${n_resp_per_prompt} \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=${micro_batch_size_per_gpu} \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=${micro_batch_size_per_gpu} \
+    actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=${micro_batch_size_per_gpu} \
     algorithm.adv_estimator=${adv_estimator} \
     algorithm.use_kl_in_reward=${use_kl_in_reward} \
     algorithm.kl_ctrl.kl_coef=${kl_coef} \
