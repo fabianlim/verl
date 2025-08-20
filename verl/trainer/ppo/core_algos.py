@@ -318,7 +318,7 @@ def compute_grpo_outcome_advantage(
                 raise ValueError(f"no score in prompt index: {idx}")
 
         # compute all batch std (for LitePPO)
-        if liteppo:
+        if use_liteppo:
             # population std (divide by N, not N-1)
             # Ensures the std never drops to zero
             batch_std = scores.std(unbiased=False).clamp_min(epsilon)
