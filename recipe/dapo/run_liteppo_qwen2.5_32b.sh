@@ -21,11 +21,11 @@ loss_agg_mode="token-mean"
 
 enable_filter_groups=True
 filter_groups_metric=acc
-max_num_gen_batches=10
+
 train_prompt_bsz=512
-gen_prompt_bsz=$((train_prompt_bsz * 3))
 n_resp_per_prompt=16
 train_prompt_mini_bsz=32
+micro_batch_size_per_gpu=16
 
 # Ray
 RAY_ADDRESS=${RAY_ADDRESS:-"http://localhost:8265"}
@@ -64,6 +64,7 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     data.max_response_length=${max_response_length} \
     data.train_batch_size=${train_prompt_bsz} \
     actor_rollout_ref.rollout.n=${n_resp_per_prompt} \
+    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=${micro_batch_size_per_gpu} \
     algorithm.adv_estimator=${adv_estimator} \
     algorithm.use_kl_in_reward=${use_kl_in_reward} \
     algorithm.kl_ctrl.kl_coef=${kl_coef} \
