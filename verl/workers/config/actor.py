@@ -106,6 +106,7 @@ class ActorConfig(BaseConfig):
     target_entropy: float = 0.5
     use_adaptive_entropy_adjustment: bool = False
     entropy_coeff_delta: float = 0.00005
+    entropy_coeff_max: float = 0.005
     kl_loss_coef: float = 0.001
     kl_loss_type: str = "low_var_kl"
     ppo_epochs: int = 1
