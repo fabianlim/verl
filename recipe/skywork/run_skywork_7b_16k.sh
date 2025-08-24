@@ -12,7 +12,7 @@ export HYDRA_FULL_ERROR=1
 ENTROPY_COEFF=0.0
 USE_ADAPTIVE_ENT=True
 TGT_ENTROPY=0.2
-# MAX_ENT_COEF=0.005
+MAX_ENT_COEF=0.005
 # MIN_ENT_COEF=0
 DELTA_ENT_COEF=0.0001
 
@@ -96,6 +96,7 @@ python3 -m recipe.dapo.main_dapo \
     actor_rollout_ref.actor.use_adaptive_entropy_adjustment=$USE_ADAPTIVE_ENT \
     actor_rollout_ref.actor.target_entropy=${TGT_ENTROPY} \
     actor_rollout_ref.actor.entropy_coeff_delta=${DELTA_ENT_COEF} \
+    actor_rollout_ref.actor.entropy_coeff_max=${MAX_ENT_COEF} \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=$TP \
     actor_rollout_ref.rollout.name=vllm \
