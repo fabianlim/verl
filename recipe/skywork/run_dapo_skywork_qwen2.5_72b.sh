@@ -18,6 +18,7 @@ ENTROPY_COEFF=${ENTROPY_COEFF:-0.0} # Do we need to adjust this?
 USE_ADAPTIVE_ENT=${USE_ADAPTIVE_ENT:-True}
 TGT_ENTROPY=${TGT_ENTROPY:-0.3}
 DELTA_ENT_COEF=${DELTA_ENT_COEF:-0.0001}
+MAX_ENT_COEF=${MAX_ENT_COEF:-0.005}
 
 
 max_prompt_length=$((1024 * 2))
@@ -124,6 +125,7 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     actor_rollout_ref.actor.use_adaptive_entropy_adjustment=$USE_ADAPTIVE_ENT \
     actor_rollout_ref.actor.target_entropy=${TGT_ENTROPY} \
     actor_rollout_ref.actor.entropy_coeff_delta=${DELTA_ENT_COEF} \
+    actor_rollout_ref.actor.entropy_coeff_max=${MAX_ENT_COEF} \
     reward_model.reward_manager=dapo \
     reward_model.overlong_buffer.enable=${enable_overlong_buffer} \
     reward_model.overlong_buffer.len=${overlong_buffer_len} \
