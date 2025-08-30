@@ -16,6 +16,9 @@ MAX_ENT_COEF=0.005
 # MIN_ENT_COEF=0
 DELTA_ENT_COEF=0.0001
 
+clip_ratio_low=0.2
+clip_ratio_high=0.2
+
 ROLLOUT_BATCH_SIZE=256
 PPO_MINI_BATCH=256
 MAX_PROMPT_LENGTH=2048
@@ -87,6 +90,8 @@ python3 -m recipe.dapo.main_dapo \
     actor_rollout_ref.actor.entropy_coeff=$ENTROPY_COEFF \
     actor_rollout_ref.actor.ppo_mini_batch_size=$PPO_MINI_BATCH \
     actor_rollout_ref.actor.grad_clip=1.0 \
+    actor_rollout_ref.actor.clip_ratio_low=${clip_ratio_low} \
+    actor_rollout_ref.actor.clip_ratio_high=${clip_ratio_high} \
     actor_rollout_ref.actor.loss_agg_mode=token-mean \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=True \
