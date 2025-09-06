@@ -20,12 +20,17 @@ TGT_ENTROPY=${TGT_ENTROPY:-0.3}
 DELTA_ENT_COEF=${DELTA_ENT_COEF:-0.0001}
 MAX_ENT_COEF=${MAX_ENT_COEF:-0.005}
 
+MAX_RESP_LEN_MULT=${MAX_RESP_LEN_MULT:-20}
+OVERLEN_ENABLE=${OVERLEN_ENABLE:-True}
+OVERLEN_MULT=${OVERLEN_MULT:-4}
+OVERLEN_PENALTY=${OVERLEN_PENALTY:-1.0}
+
 
 max_prompt_length=$((1024 * 2))
-max_response_length=$((1024 * 20))
-enable_overlong_buffer=True
-overlong_buffer_len=$((1024 * 4))
-overlong_penalty_factor=1.0
+max_response_length=$((1024 * $MAX_RESP_LEN_MULT))
+enable_overlong_buffer=$OVERLEN_ENABLE
+overlong_buffer_len=$((1024 * $OVERLEN_MULT))
+overlong_penalty_factor=$OVERLEN_PENALTY
 
 loss_agg_mode="token-mean"
 
