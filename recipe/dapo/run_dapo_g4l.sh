@@ -56,6 +56,17 @@ infer_ppo_max_token_len=$((max_prompt_length + max_response_length))
 offload=${offload:-True}
 gen_tp=${gen_tp:-4}
 
+lr=${lr:-1e-6}
+lr_warmup_steps=${lr_warmup_steps:-10}
+weight_decay=${weight_decay:-0.1}
+
+entropy_coeff=${entropy_coeff:-0}
+grad_clip=${grad_clip:-1.0}
+
+test_freq=${test_freq:-5}
+save_freq=${save_freq:-5}
+total_epochs=${total_epochs:-1}
+
 ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     --submission-id g4l \
     --working-dir "${WORKING_DIR}" \
@@ -89,14 +100,14 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu=${infer_ppo_max_token_len} \
     actor_rollout_ref.model.path="${MODEL_PATH}" \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \
-    actor_rollout_ref.actor.optim.lr=1e-6 \
-    actor_rollout_ref.actor.optim.lr_warmup_steps=10 \
-    actor_rollout_ref.actor.optim.weight_decay=0.1 \
+    actor_rollout_ref.actor.optim.lr=${lr} \
+    actor_rollout_ref.actor.optim.lr_warmup_steps=${lr_warmup_steps} \
+    actor_rollout_ref.actor.optim.weight_decay=${weight_decay} \
     actor_rollout_ref.actor.ppo_mini_batch_size=${train_prompt_mini_bsz} \
     actor_rollout_ref.actor.fsdp_config.param_offload=${offload} \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=${offload} \
-    actor_rollout_ref.actor.entropy_coeff=0 \
-    actor_rollout_ref.actor.grad_clip=1.0 \
+    actor_rollout_ref.actor.entropy_coeff=${entropy_coeff} \
+    actor_rollout_ref.actor.grad_clip=${grad_clip} \
     actor_rollout_ref.actor.loss_agg_mode=${loss_agg_mode} \
     actor_rollout_ref.actor.ulysses_sequence_parallel_size=${sp_size} \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.80 \
@@ -122,11 +133,11 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     trainer.logger='["console","wandb"]' \
     trainer.project_name="${project_name}" \
     trainer.experiment_name="${exp_name}" \
-    trainer.n_gpus_per_node=8 \
+    trainer.n_gpus_per_node=${NGPUS_PER_NODE} \
     trainer.nnodes="${NNODES}" \
     trainer.val_before_train=True \
-    trainer.test_freq=5 \
-    trainer.save_freq=5 \
-    trainer.total_epochs=1 \
+    trainer.test_freq=${test_freq} \
+    trainer.save_freq=${save_freq} \
+    trainer.total_epochs=${total_epochs} \
     trainer.default_local_dir="${CKPTS_DIR}" \
     trainer.resume_mode=auto
