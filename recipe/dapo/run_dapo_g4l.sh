@@ -1,34 +1,50 @@
 #!/usr/bin/env bash
 set -xeuo pipefail
 
-project_name=${project_name:-'DAPO'}
-exp_name=${exp_name:-'g4l-test'}
+# NOTE: @goon - flim is skeptical of mamba tp, might need to turn it off for quality
+# TODO: @goon - follow /proj/data-eng/goon/verl/recipe/skywork/run_skywork_7b_16k.sh
 
+actor_ppo_max_token_len=$((max_prompt_length + max_response_length))
 adv_estimator=${adv_estimator:-grpo}
-
-use_kl_in_reward=${use_kl_in_reward:-False}
-kl_coef=${kl_coef:-0.0}
-use_kl_loss=${use_kl_loss:-False}
-kl_loss_coef=${kl_loss_coef:-0.0}
-
-clip_ratio_low=${clip_ratio_low:-0.2}
 clip_ratio_high=${clip_ratio_high:-0.28}
-
+clip_ratio_low=${clip_ratio_low:-0.2}
+enable_filter_groups=${enable_filter_groups:-True}
+enable_overlong_buffer=${enable_overlong_buffer:-False}
+entropy_coeff=${entropy_coeff:-0}
+exp_name=${exp_name:-'g4l-test'}
+filter_groups_metric=${filter_groups_metric:-acc}
+gen_prompt_bsz=${gen_prompt_bsz:-$((train_prompt_bsz))}
+gen_tp=${gen_tp:-1}
+grad_clip=${grad_clip:-1.0}
+infer_ppo_max_token_len=$((max_prompt_length + max_response_length))
+kl_coef=${kl_coef:-0.0}
+kl_loss_coef=${kl_loss_coef:-0.0}
+loss_agg_mode=${loss_agg_mode:-"token-mean"}
+lr=${lr:-1e-6}
+lr_warmup_steps=${lr_warmup_steps:-10}
+max_num_gen_batches=${max_num_gen_batches:-10}
 max_prompt_length=${max_prompt_length:-$((1024 * 2))}
-max_response_length=${max_response_length:-$((1024 * 20))}
-enable_overlong_buffer=${enable_overlong_buffer:-True}
+max_response_length=${max_response_length:-$((1024 * 8))}
+n_resp_per_prompt=${n_resp_per_prompt:-16}
+offload=${offload:-True}
 overlong_buffer_len=${overlong_buffer_len:-$((1024 * 4))}
 overlong_penalty_factor=${overlong_penalty_factor:-1.0}
-
-loss_agg_mode=${loss_agg_mode:-"token-mean"}
-
-enable_filter_groups=${enable_filter_groups:-True}
-filter_groups_metric=${filter_groups_metric:-acc}
-max_num_gen_batches=${max_num_gen_batches:-10}
-train_prompt_bsz=${train_prompt_bsz:-512}
-gen_prompt_bsz=${gen_prompt_bsz:-$((train_prompt_bsz * 3))}
-n_resp_per_prompt=${n_resp_per_prompt:-16}
+project_name=${project_name:-'DAPO'}
+save_freq=${save_freq:-50}
+sp_size=${sp_size:-1}
+temperature=${temperature:-1.0}
+test_freq=${test_freq:-5}
+top_k=-1 # 0 for HF rollout, -1 for vLLM rollout
+top_p=${top_p:-1.0}
+total_epochs=${total_epochs:-1}
+train_prompt_bsz=${train_prompt_bsz:-256}
 train_prompt_mini_bsz=${train_prompt_mini_bsz:-32}
+use_dynamic_bsz=${use_dynamic_bsz:-True}
+use_kl_in_reward=${use_kl_in_reward:-False}
+use_kl_loss=${use_kl_loss:-False}
+val_top_p=${val_top_p:-0.7}
+weight_decay=${weight_decay:-0.1}
+
 
 # Ray
 RAY_ADDRESS=${RAY_ADDRESS:-"http://localhost:8265"}
@@ -37,35 +53,17 @@ RUNTIME_ENV=${RUNTIME_ENV:-"${WORKING_DIR}/verl/trainer/runtime_env.yaml"}
 NNODES=${NNODES:-16}
 # Paths
 RAY_DATA_HOME=${RAY_DATA_HOME:-"${HOME}/verl"}
-MODEL_PATH=${MODEL_PATH:-"${RAY_DATA_HOME}/models/Qwen2.5-32B"}
+if [ -z "$MODEL_PATH" ]; then
+    echo "MODEL_PATH is not set"
+    exit 1
+fi
 CKPTS_DIR=${CKPTS_DIR:-"${RAY_DATA_HOME}/ckpts/${project_name}/${exp_name}"}
 TRAIN_FILE=${TRAIN_FILE:-"${RAY_DATA_HOME}/data/dapo-math-17k.parquet"}
 TEST_FILE=${TEST_FILE:-"${RAY_DATA_HOME}/data/aime-2024.parquet"}
 
-# Algorithm
-temperature=${temperature:-1.0}
-top_p=${top_p:-1.0}
-top_k=-1 # 0 for HF rollout, -1 for vLLM rollout
-val_top_p=${val_top_p:-0.7}
-
-# Performance Related Parameter
-sp_size=${sp_size:-8}
-use_dynamic_bsz=${use_dynamic_bsz:-True}
-actor_ppo_max_token_len=$((max_prompt_length + max_response_length))
-infer_ppo_max_token_len=$((max_prompt_length + max_response_length))
-offload=${offload:-True}
-gen_tp=${gen_tp:-4}
-
-lr=${lr:-1e-6}
-lr_warmup_steps=${lr_warmup_steps:-10}
-weight_decay=${weight_decay:-0.1}
-
-entropy_coeff=${entropy_coeff:-0}
-grad_clip=${grad_clip:-1.0}
-
-test_freq=${test_freq:-5}
-save_freq=${save_freq:-5}
-total_epochs=${total_epochs:-1}
+# TODO: @goon - entropy cfgs?
+# actor_rollout_ref.actor.use_adaptive_entropy_adjustment=$USE_ADAPTIVE_ENT \
+# actor_rollout_ref.actor.target_entropy=${TGT_ENTROPY} \
 
 ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     --submission-id g4l \
