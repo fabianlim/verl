@@ -1,49 +1,48 @@
 #!/usr/bin/env bash
 set -xeuo pipefail
 
-# NOTE: @goon - flim is skeptical of mamba tp, might need to turn it off for quality
-# TODO: @goon - follow /proj/data-eng/goon/verl/recipe/skywork/run_skywork_7b_16k.sh
+# NOTE: @goon - The user is expected to set the following env vars:
 
-actor_ppo_max_token_len=$((max_prompt_length + max_response_length))
-adv_estimator=${adv_estimator:-grpo}
-clip_ratio_high=${clip_ratio_high:-0.28}
-clip_ratio_low=${clip_ratio_low:-0.2}
-enable_filter_groups=${enable_filter_groups:-True}
-enable_overlong_buffer=${enable_overlong_buffer:-False}
-entropy_coeff=${entropy_coeff:-0}
-exp_name=${exp_name:-'g4l-test'}
-filter_groups_metric=${filter_groups_metric:-acc}
-gen_prompt_bsz=${gen_prompt_bsz:-$((train_prompt_bsz))}
-gen_tp=${gen_tp:-1}
-grad_clip=${grad_clip:-1.0}
-infer_ppo_max_token_len=$((max_prompt_length + max_response_length))
-kl_coef=${kl_coef:-0.0}
-kl_loss_coef=${kl_loss_coef:-0.0}
-loss_agg_mode=${loss_agg_mode:-"token-mean"}
-lr=${lr:-1e-6}
-lr_warmup_steps=${lr_warmup_steps:-10}
-max_num_gen_batches=${max_num_gen_batches:-10}
-max_prompt_length=${max_prompt_length:-$((1024 * 2))}
-max_response_length=${max_response_length:-$((1024 * 8))}
-n_resp_per_prompt=${n_resp_per_prompt:-16}
-offload=${offload:-True}
-overlong_buffer_len=${overlong_buffer_len:-$((1024 * 4))}
-overlong_penalty_factor=${overlong_penalty_factor:-1.0}
-project_name=${project_name:-'DAPO'}
-save_freq=${save_freq:-50}
-sp_size=${sp_size:-1}
-temperature=${temperature:-1.0}
-test_freq=${test_freq:-5}
-top_k=-1 # 0 for HF rollout, -1 for vLLM rollout
-top_p=${top_p:-1.0}
-total_epochs=${total_epochs:-1}
-train_prompt_bsz=${train_prompt_bsz:-256}
-train_prompt_mini_bsz=${train_prompt_mini_bsz:-32}
-use_dynamic_bsz=${use_dynamic_bsz:-True}
-use_kl_in_reward=${use_kl_in_reward:-False}
-use_kl_loss=${use_kl_loss:-False}
-val_top_p=${val_top_p:-0.7}
-weight_decay=${weight_decay:-0.1}
+# actor_ppo_max_token_len
+# adv_estimator
+# clip_ratio_high
+# clip_ratio_low
+# enable_filter_groups
+# enable_overlong_buffer
+# entropy_coeff
+# exp_name
+# filter_groups_metric
+# gen_prompt_bsz
+# gen_tp
+# grad_clip
+# infer_ppo_max_token_len
+# kl_coef
+# kl_loss_coef
+# loss_agg_mode
+# lr
+# lr_warmup_steps
+# max_num_gen_batches
+# max_prompt_length
+# max_response_length
+# n_resp_per_prompt
+# offload
+# overlong_buffer_len
+# overlong_penalty_factor
+# project_name
+# save_freq
+# sp_size
+# temperature
+# test_freq
+# top_k
+# top_p
+# total_epochs
+# train_prompt_bsz
+# train_prompt_mini_bsz
+# use_dynamic_bsz
+# use_kl_in_reward
+# use_kl_loss
+# val_top_p
+# weight_decay
 
 
 # Ray
