@@ -63,6 +63,16 @@ def default_compute_score(
         from . import math_verify 
 
         correct, pred = math_verify.compute_score(solution_str, ground_truth)
+
+        # ugly: this is needed because math verify produces
+        # predictions in tuples of lists
+        while isinstance(pred, list) or isinstance(pred, tuple):
+            if len(pred) > 0:
+                pred = pred[0]
+            else:
+                pred = None
+                break
+
         reward = 1.0 if correct else -1.0
         acc = correct
         res = {
