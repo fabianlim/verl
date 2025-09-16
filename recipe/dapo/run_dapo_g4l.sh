@@ -73,6 +73,7 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     algorithm.filter_groups.metric=${filter_groups_metric} \
     algorithm.kl_ctrl.kl_coef=${kl_coef} \
     algorithm.use_kl_in_reward=${use_kl_in_reward} \
+    +data.apply_chat_template_kwargs.thinking=${thinking} \
     data.gen_batch_size=${gen_batch_size} \
     data.max_prompt_length=${max_prompt_length} \
     data.max_response_length=${max_response_length} \
