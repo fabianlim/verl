@@ -235,7 +235,12 @@ def verify(
         correct, pred = is_correct_strict_box(solution_str, answer, pause_tokens_index)
         return correct == 1, pred
 
-    correct, pred = is_correct_minerva(solution_str, answer)
+    correct, pred = is_correct_minerva(
+        solution_str, answer,
+        # answer_pattern=(
+        #     r"(?i)Answer\s*:\s*([\d]+)"
+        # )
+    )
     return correct, pred
 
 
@@ -260,10 +265,7 @@ def compute_score(
     solution_str = solution_str[-300:]  # The longest answer in MATH-500 has 159 characters
 
     # Verify the solution
-    try:
-        correct, pred = verify(solution_str, ground_truth, strict_box_verify, pause_tokens_index)
-    except:
-        correct, pred = False, None
+    correct, pred = verify(solution_str, ground_truth, strict_box_verify, pause_tokens_index)
 
     reward = 1.0 if correct else -1.0
     acc = correct

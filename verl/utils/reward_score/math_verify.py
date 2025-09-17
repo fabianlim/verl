@@ -29,6 +29,7 @@ def compute_score(model_output: str, ground_truth: str, timeout_score: float = 0
 
     # Wrap the ground truth in \boxed{} format for verification
     ground_truth_boxed = "\\boxed{" + ground_truth + "}"
+    preds = None
     try:
         ret_score, preds  = verify_func([ground_truth_boxed], [model_output])
     except Exception:
