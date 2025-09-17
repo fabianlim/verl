@@ -235,7 +235,12 @@ def verify(
         correct, pred = is_correct_strict_box(solution_str, answer, pause_tokens_index)
         return correct == 1, pred
 
-    correct, pred = is_correct_minerva(solution_str, answer)
+    correct, pred = is_correct_minerva(
+        solution_str, answer,
+        # answer_pattern=(
+        #     r"(?i)Answer\s*:\s*([\d]+)"
+        # )
+    )
     return correct, pred
 
 
