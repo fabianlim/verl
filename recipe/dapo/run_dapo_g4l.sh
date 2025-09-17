@@ -24,6 +24,7 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     --submission-id g4l \
     --working-dir "${WORKING_DIR}" \
     -- python3 -m recipe.dapo.main_dapo \
+    +data.apply_chat_template_kwargs.thinking=${thinking} \
     actor_rollout_ref.actor.clip_ratio_c=10.0 \
     actor_rollout_ref.actor.clip_ratio_high=${clip_ratio_high} \
     actor_rollout_ref.actor.clip_ratio_low=${clip_ratio_low} \
@@ -40,7 +41,9 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     actor_rollout_ref.actor.ppo_max_token_len_per_gpu=${actor_ppo_max_token_len} \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=${ppo_micro_batch_size_per_gpu} \
     actor_rollout_ref.actor.ppo_mini_batch_size=${ppo_mini_batch_size} \
+    actor_rollout_ref.actor.target_entropy=${target_entropy} \
     actor_rollout_ref.actor.ulysses_sequence_parallel_size=${sp_size} \
+    actor_rollout_ref.actor.use_adaptive_entropy_adjustment=${use_adaptive_entropy_adjustment} \
     actor_rollout_ref.actor.use_dynamic_bsz=${use_dynamic_bsz} \
     actor_rollout_ref.actor.use_kl_loss=${use_kl_loss} \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \
@@ -73,7 +76,6 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     algorithm.filter_groups.metric=${filter_groups_metric} \
     algorithm.kl_ctrl.kl_coef=${kl_coef} \
     algorithm.use_kl_in_reward=${use_kl_in_reward} \
-    +data.apply_chat_template_kwargs.thinking=${thinking} \
     data.gen_batch_size=${gen_batch_size} \
     data.max_prompt_length=${max_prompt_length} \
     data.max_response_length=${max_response_length} \
