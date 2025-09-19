@@ -90,6 +90,7 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     reward_model.reward_manager=dapo \
     trainer.default_local_dir="${CKPTS_DIR}" \
     trainer.experiment_name="${exp_name}" \
+    trainer.log_val_generations=${log_val_generations:-0} \
     trainer.logger='["console","wandb"]' \
     trainer.n_gpus_per_node=${NGPUS_PER_NODE} \
     trainer.nnodes="${NNODES}" \
