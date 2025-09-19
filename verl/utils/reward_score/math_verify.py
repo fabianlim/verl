@@ -96,9 +96,13 @@ try:
                 str_preds = get_str_preds_with_timeout(
                     extracted_predictions, extracted_golds
                 )
-            except Exception:
+            except TimeoutException:
                 logger.warning(
                     "Timeout when adding extracted predictions and golds to specific"
+                )
+            except Exception:
+                logger.warning(
+                    "Caught exception from get_str_preds_with_timeout"
                 )
 
             return (
