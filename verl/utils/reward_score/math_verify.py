@@ -19,13 +19,16 @@ try:
 except ImportError:
     print("To use Math-Verify, please install it first by running `pip install math-verify`.")
 
-
-def compute_score(model_output: str, ground_truth: str, timeout_score: float = 0) -> bool:
+def compute_score(model_output: str, ground_truth: str, timeout_score: float = 0, search_last_chars: int = 300) -> bool:
     verify_func = math_metric(
         gold_extraction_target=(LatexExtractionConfig(),),
         pred_extraction_target=(ExprExtractionConfig(), LatexExtractionConfig()),
     )
     ret_score = 0.0
+
+    # take the last part
+    if search_last_chars is not None:
+        model_output = model_output[-search_last_chars:]
 
     # Wrap the ground truth in \boxed{} format for verification
     ground_truth_boxed = "\\boxed{" + ground_truth + "}"
