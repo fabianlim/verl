@@ -21,7 +21,6 @@ try:
         ExtractionTarget, parse
     )
     from math_verify.grader import verify
-    from math_verify.utils import timeout
 
     import logging
     logger = logging.getLogger(__name__)
@@ -63,8 +62,7 @@ try:
 
         """
 
-        @timeout(2)
-        def get_str_preds_with_timeout(
+        def get_str_preds(
             extracted_predictions: list[list[str]], extracted_golds: list[list[str]]
         ) -> tuple[list[str], list[str]]:
             golds = [str(gold) for golds in extracted_golds for gold in golds]
@@ -75,13 +73,21 @@ try:
             golds: list[str], predictions: list[str]
         ) -> tuple[float, Optional[tuple[list[str], list[str]]]]:
             extracted_predictions = [
-                parse(pred, pred_extraction_target) for pred in predictions
+                parse(
+                    pred, pred_extraction_target,
+                    raise_on_error=False, # DEBUG: make it not raise
+                ) for pred in predictions
             ]
-            extracted_golds = [parse(gold, gold_extraction_target) for gold in golds]
+            extracted_golds = [
+                parse(
+                    gold, gold_extraction_target,
+                    raise_on_error=False, # DEBUG: make it not raise
+                ) for gold in golds
+            ]
 
             # Assert on empty gold and warn on empty pred
             if any(len(g) == 0 for g in extracted_golds):
-                raise ValueError(
+                logger.warning(
                     f"No gold targets found for at least one gold. Gold: {golds}, Pred: {predictions}"
                 )
 
@@ -93,12 +99,8 @@ try:
             # We have to use timeout because the sypmy to str conversion can be very slow
             str_preds = None
             try:
-                str_preds = get_str_preds_with_timeout(
+                str_preds = get_str_preds(
                     extracted_predictions, extracted_golds
-                )
-            except TimeoutException:
-                logger.warning(
-                    "Timeout when adding extracted predictions and golds to specific"
                 )
             except Exception:
                 logger.warning(
