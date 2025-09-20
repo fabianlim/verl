@@ -101,4 +101,4 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     trainer.test_freq=${test_freq:-5} \
     trainer.total_epochs=${total_epochs:-1} \
     trainer.validation_data_dir=${validation_data_dir:-null} \
-    trainer.val_before_train=True ${EXTRA_G4L_ARGS:-""}
+    trainer.val_before_train=True

@@ -60,7 +60,7 @@ def default_compute_score(
 
         res = math_dapo.compute_score(solution_str, ground_truth)
     elif "verify" in data_source:
-        from . import math_verify 
+        from . import math_verify
 
         correct, pred = math_verify.compute_score(solution_str, ground_truth)
 
