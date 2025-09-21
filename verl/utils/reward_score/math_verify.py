@@ -12,14 +12,77 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Callable, Optional, Sequence
+
 try:
     from math_verify.errors import TimeoutException
-    from math_verify.metric import math_metric
-    from math_verify.parser import ExprExtractionConfig, LatexExtractionConfig
+    from math_verify.parser import (
+        ExprExtractionConfig, LatexExtractionConfig,
+        ExtractionTarget, parse
+    )
+    from math_verify.grader import verify
+
+    import logging
+    logger = logging.getLogger(__name__)
+    # copied from  math-verify.metric.py
+
+    def math_metric(
+        gold_extraction_target: Sequence[ExtractionTarget] = (ExprExtractionConfig(),),
+        pred_extraction_target: Sequence[ExtractionTarget] = (ExprExtractionConfig(),),
+        precision: int = 6,
+    ):
+
+        def sample_level_fn(
+            gold: str, pred: str,
+        ) -> tuple[float, Optional[tuple[list[str], list[str]]]]:
+            extracted_pred = parse(
+                pred, pred_extraction_target,
+                raise_on_error=False, # DEBUG: make it not raise
+            ) 
+            extracted_gold = parse(
+                gold, gold_extraction_target,
+                raise_on_error=False, # DEBUG: make it not raise
+            )
+            if len(extracted_pred) == 0:
+                logger.warning(
+                    f"We did not manage to extract a prediction in the correct format. Gold: {[gold]}, Pred: {[pred]}"
+                )
+
+            # We have to use timeout because the sypmy to str conversion can be very slow
+            v = verify(
+                extracted_gold, extracted_pred, precision, 
+                raise_on_error=False, # prevents verify from raising timeout
+            )
+            
+            return (1.0 if v else 0.0), '[INVALID]'
+
+        return sample_level_fn
+
+    # https://github.com/volcengine/verl/issues/3407
+    # NO TIMEOUT VERSION
+    # def math_metric_no_raise(
+    #     gold_extraction_target: Sequence[ExtractionTarget] = (ExprExtractionConfig(),),
+    #     pred_extraction_target: Sequence[ExtractionTarget] = (ExprExtractionConfig(),),
+    # ) -> Callable[
+    #     [list[str], list[str]], tuple[float, Optional[tuple[list[str], list[str]]]]
+    # ]:
+    #     ret_score = verify(
+    #         parse(gold_extraction_target[0], raise_on_error=False),
+    #         parse(pred_extraction_target[0], raise_on_error=False),
+    #         raise_on_error=False,
+    #     )
+    #     return ret_score, None
+
+
 except ImportError:
     print("To use Math-Verify, please install it first by running `pip install math-verify`.")
 
-def compute_score(model_output: str, ground_truth: str, timeout_score: float = 0, search_last_chars: int = 300) -> bool:
+def compute_score(
+    model_output: str, ground_truth: str, timeout_score: float = 0, 
+    search_last_chars: int = 300,
+    # use_timeout: bool = True,
+) -> bool:
+
     verify_func = math_metric(
         gold_extraction_target=(LatexExtractionConfig(),),
         pred_extraction_target=(ExprExtractionConfig(), LatexExtractionConfig()),
@@ -34,7 +97,7 @@ def compute_score(model_output: str, ground_truth: str, timeout_score: float = 0
     ground_truth_boxed = "\\boxed{" + ground_truth + "}"
     preds = None
     try:
-        ret_score, preds  = verify_func([ground_truth_boxed], [model_output])
+        ret_score, preds  = verify_func(ground_truth_boxed, model_output)
     except Exception:
         pass
     except TimeoutException:
