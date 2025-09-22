@@ -76,7 +76,7 @@ use_kl_loss: false
 
 # test
 target_entropy: 0.5 # target entropy for adaptive entropy control in Skywork-OR1-32B
-use_adaptive_entropy_adjustment: True # adaptive entropy control in Skywork-OR1-32B
+use_adaptive_entropy_adjustment: False # adaptive entropy control in Skywork-OR1-32B
 entropy_coeff_delta: 0.00005 # entropy_coeff_delta for adaptive entropy control in Skywork-OR1-32B
 entropy_coeff_max: 0.005 # entropy_coeff_max for adaptive entropy control in Skywork-OR1-32B
 
