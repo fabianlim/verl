@@ -15,9 +15,10 @@
 from typing import Callable, Optional, Sequence
 
 try:
-    from math_verify.errors import TimeoutException
+    # from math_verify.errors import TimeoutException
     from math_verify.parser import (
         ExprExtractionConfig, LatexExtractionConfig,
+        NormalizationConfig,
         ExtractionTarget, parse
     )
     from math_verify.grader import verify
@@ -37,11 +38,11 @@ try:
         ) -> tuple[float, Optional[tuple[list[str], list[str]]]]:
             extracted_pred = parse(
                 pred, pred_extraction_target,
-                raise_on_error=False, # DEBUG: make it not raise
+                # raise_on_error=False, # DEBUG: make it not raise
             ) 
             extracted_gold = parse(
                 gold, gold_extraction_target,
-                raise_on_error=False, # DEBUG: make it not raise
+                # raise_on_error=False, # DEBUG: make it not raise
             )
             if len(extracted_pred) == 0:
                 logger.warning(
@@ -51,7 +52,7 @@ try:
             # We have to use timeout because the sypmy to str conversion can be very slow
             v = verify(
                 extracted_gold, extracted_pred, precision, 
-                raise_on_error=False, # prevents verify from raising timeout
+                # raise_on_error=False, # prevents verify from raising timeout
             )
             
             return (1.0 if v else 0.0), '[INVALID]'
@@ -83,9 +84,24 @@ def compute_score(
     # use_timeout: bool = True,
 ) -> bool:
 
+    normalization_config = NormalizationConfig(
+        basic_latex=True,
+        units=True,
+        malformed_operators=False,
+        nits=False,
+        boxed="all",
+        equations=False,
+    )
     verify_func = math_metric(
-        gold_extraction_target=(LatexExtractionConfig(),),
-        pred_extraction_target=(ExprExtractionConfig(), LatexExtractionConfig()),
+        gold_extraction_target=(LatexExtractionConfig(
+            normalization_config=normalization_config,
+        ),),
+        pred_extraction_target=(
+            ExprExtractionConfig(), 
+            LatexExtractionConfig(
+                normalization_config=normalization_config,
+            )
+        ),
     )
     ret_score = 0.0
 
@@ -100,7 +116,8 @@ def compute_score(
         ret_score, preds  = verify_func(ground_truth_boxed, model_output)
     except Exception:
         pass
-    except TimeoutException:
+    # except TimeoutException:
+    except TimeoutError:
         ret_score = timeout_score
 
     return ret_score, preds
