@@ -469,6 +469,8 @@ class DataParallelPPOActor(BasePPOActor):
                         else:
                             entropy_loss = agg_loss(loss_mat=entropy, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
                             policy_loss = pg_loss - entropy_loss * entropy_coeff
+                            metrics["actor/entropy_coeff"] = entropy_coeff
+                            metrics["actor/entropy_loss"] = entropy_loss.detach().item()
 
                     if self.config.use_kl_loss:
                         ref_log_prob = model_inputs["ref_log_prob"]
