@@ -105,7 +105,6 @@ try:
             
             # We perform a quick string match first
             if pred in ground_truth:
-                print ('quick')
                 return 1.0, pred
             
             # We now fallback to semantic verification
