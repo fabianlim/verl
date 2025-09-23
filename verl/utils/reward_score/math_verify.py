@@ -41,7 +41,7 @@ try:
                 # raise_on_error=False, # DEBUG: make it not raise
             ) 
             extracted_gold = parse(
-                gold, gold_extraction_target,
+                "\\boxed{" + gold + "}", gold_extraction_target,
                 # raise_on_error=False, # DEBUG: make it not raise
             )
             if len(extracted_pred) == 0:
@@ -74,6 +74,55 @@ try:
     #     )
     #     return ret_score, None
 
+    # simpler version ported from skywork
+    def math_metric_skywork(
+        gold_extraction_target: Sequence[ExtractionTarget] = (ExprExtractionConfig(),),
+        pred_extraction_target: Sequence[ExtractionTarget] = (ExprExtractionConfig(),),
+        precision: int = 6,
+    ):
+
+        def sample_level_fn(ground_truth, solution_str):
+
+            ground_truth = [ground_truth] if isinstance(ground_truth, str) else ground_truth
+
+            pred = '[INVALID]'
+            
+            # 0 in case parsing cannot be completed
+            try:
+                math_verify_parsed = parse(
+                    solution_str, 
+                    pred_extraction_target,
+                    parsing_timeout=5
+                )
+            except Exception:
+                return 0.0, pred
+            
+            # 0 if parsing is problematic
+            if len(math_verify_parsed) < 2:
+                return 0.0, pred
+
+            pred = math_verify_parsed[1]
+            
+            # We perform a quick string match first
+            if pred in ground_truth:
+                print ('quick')
+                return 1.0, pred
+            
+            # We now fallback to semantic verification
+            for gt in ground_truth:
+                try:
+                    if verify(
+                        parse("\\boxed{" + gt + "}", gold_extraction_target, parsing_timeout=5),
+                        math_verify_parsed,
+                        timeout_seconds=5,
+                    ):
+                        return 1.0, pred
+                except Exception:
+                    continue
+            
+            # Very unlikely to be correct after the above matches
+            return 0.0, pred
+        return sample_level_fn
 
 except ImportError:
     print("To use Math-Verify, please install it first by running `pip install math-verify`.")
@@ -81,6 +130,7 @@ except ImportError:
 def compute_score(
     model_output: str, ground_truth: str, timeout_score: float = 0, 
     search_last_chars: int = 300,
+    use_skywork: bool = True,
     # use_timeout: bool = True,
 ) -> bool:
 
@@ -92,7 +142,12 @@ def compute_score(
         boxed="all",
         equations=False,
     )
-    verify_func = math_metric(
+    if use_skywork:
+        METRIC_FUNC = math_metric_skywork
+    else:
+        METRIC_FUNC = math_metric
+
+    verify_func = METRIC_FUNC(
         gold_extraction_target=(LatexExtractionConfig(
             normalization_config=normalization_config,
         ),),
@@ -110,10 +165,9 @@ def compute_score(
         model_output = model_output[-search_last_chars:]
 
     # Wrap the ground truth in \boxed{} format for verification
-    ground_truth_boxed = "\\boxed{" + ground_truth + "}"
     preds = None
     try:
-        ret_score, preds  = verify_func(ground_truth_boxed, model_output)
+        ret_score, preds  = verify_func(ground_truth, model_output)
     except Exception:
         pass
     # except TimeoutException:
