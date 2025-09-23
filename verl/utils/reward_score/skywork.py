@@ -100,6 +100,31 @@ def convert_function_to_class_method(
     new_code = ast.unparse(tree)
     return new_code
 
+
+from math_verify.parser import (
+    ExprExtractionConfig, LatexExtractionConfig,
+    NormalizationConfig,
+    ExtractionTarget, parse
+)
+normalization_config = NormalizationConfig(
+    basic_latex=True,
+    units=True,
+    malformed_operators=False,
+    nits=False,
+    boxed="all",
+    equations=False,
+)
+
+gold_extraction_target=(LatexExtractionConfig(
+    normalization_config=normalization_config,
+))
+pred_extraction_target=(
+    ExprExtractionConfig(), 
+    LatexExtractionConfig(
+        normalization_config=normalization_config,
+    )
+)
+
 # for verifying math 
 def math_verify_reward_function(solution_str, ground_truth):
 
@@ -107,14 +132,14 @@ def math_verify_reward_function(solution_str, ground_truth):
     
     # 0 in case parsing cannot be completed
     try:
-        math_verify_parsed = parse(solution_str, parsing_timeout=5)
+        math_verify_parsed = parse(solution_str, pred_extraction_target, parsing_timeout=5)
     except Exception:
         return 0.0
     
     # 0 if parsing is problematic
     if len(math_verify_parsed) < 2:
         return 0.0
-    
+
     # We perform a quick string match first
     if math_verify_parsed[1] in ground_truth:
         return 1.0
@@ -123,7 +148,7 @@ def math_verify_reward_function(solution_str, ground_truth):
     for gt in ground_truth:
         try:
             if verify(
-                parse(f"\\boxed{{{gt}}}", parsing_timeout=5),
+                parse(f"\\boxed{{{gt}}}", gold_extraction_target, parsing_timeout=5),
                 math_verify_parsed,
                 timeout_seconds=5,
             ):
@@ -139,6 +164,7 @@ def compute_score(
     completion: str, 
     ground_truth: Dict, 
     timeout: int = 6, 
+    search_last_chars: int = 300,
 ):
     # seperate the solution from think tags
     if "</think>" in completion:
@@ -161,6 +187,8 @@ def compute_score(
     try:
         # if its math
         if 'math_verify' in ground_truth:
+            if search_last_chars is not None:
+                solution_str = solution_str[-search_last_chars:]
             return (
                 math_verify_reward_function(
                     solution_str, 
