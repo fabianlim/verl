@@ -21,7 +21,7 @@ from verl.workers.reward_manager import register
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
 import numpy as np
-from verl.utils.reward_score.skywork import compute_score as code_compute_score
+from verl.utils.reward_score.skywork import compute_score as skywork_compute_score
 
 def parallel_compute_score(
     evaluation_func, 
@@ -56,13 +56,21 @@ class YRRewardManager:
     def __init__(
         self, tokenizer, num_examine, 
         compute_score=None, 
+        overlong_buffer_cfg=None,
+        max_resp_len=None,
         **kwargs,
     ) -> None:
         self.tokenizer = tokenizer
         self.num_examine = num_examine  # the number of batches of decoded responses to print to the console
+
         # OVERRIDE!!
-        self.compute_score = code_compute_score
+        self.compute_score = skywork_compute_score # we always override, regardless what compute_score is
         
+        # this is a different kind of overlong protection, where if a
+        # sample hits the max response len, we will 
+        self.overlong_buffer_cfg = overlong_buffer_cfg
+        self.max_resp_len = max_resp_len
+
     def __call__(self, data: DataProto, return_dict: bool = False):
         """We will expand this function gradually based on the available datasets"""
 
@@ -112,7 +120,17 @@ class YRRewardManager:
 
         for i in range(len(data)):
             data_source = data_sources[i]
-            reward_tensor[i, valid_response_length[i].item() - 1] = scores[i]
+            reward = scores[i]
+            if self.overlong_buffer_cfg.enable:
+                if self.max_resp_len == valid_response_length[i].item():
+                    # we know that scores are 1 for correct and 0 for wrong
+                    # - so we just put a different value
+                    reward = self.overlong_buffer_cfg.penalty_factor # HIJACK THIS
+                    reward_extra_info["overlong"].append(1.0)
+                else:
+                    reward_extra_info["overlong"].append(0.0)
+
+            reward_tensor[i, valid_response_length[i].item() - 1] = reward
 
             if data_source not in already_print_data_sources:
                 already_print_data_sources[data_source] = 0
