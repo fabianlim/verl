@@ -122,13 +122,14 @@ class YRRewardManager:
             data_source = data_sources[i]
             reward = scores[i]
             if self.overlong_buffer_cfg.enable:
-                if self.max_resp_len == valid_response_length[i].item():
+                overlong = self.max_resp_len <= valid_response_length[i].item()
+                reward_extra_info['overlong'].append(overlong)
+                reward_extra_info['overlong_response_len'].append(valid_response_length[i].item())
+
+                if overlong:
                     # we know that scores are 1 for correct and 0 for wrong
                     # - so we just put a different value
                     reward = self.overlong_buffer_cfg.penalty_factor # HIJACK THIS
-                    reward_extra_info["overlong"].append(1.0)
-                else:
-                    reward_extra_info["overlong"].append(0.0)
 
             reward_tensor[i, valid_response_length[i].item() - 1] = reward
 

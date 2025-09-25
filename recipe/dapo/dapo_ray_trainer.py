@@ -229,11 +229,49 @@ class RayDAPOTrainer(RayPPOTrainer):
                         for prompt_uid, metric_vals in prompt_uid2metric_vals.items():
                             prompt_uid2metric_std[prompt_uid] = np.std(metric_vals)
 
+
                         kept_prompt_uids = [
                             uid
                             for uid, std in prompt_uid2metric_std.items()
                             if std > 0 or len(prompt_uid2metric_vals[uid]) == 1
                         ]
+
+                        # idea to dump all examples that are overlong
+                        if (
+                            hasattr(self.config.reward_model, "overlong_buffer")
+                            and self.config.reward_model.overlong_buffer.enable
+                            and (self.config.reward_model.overlong_buffer.exclude >= 0)
+                        ):
+                            prompt_uid2overlong_vals = defaultdict(int)
+                            for uid, overlong in zip(
+                                new_batch.non_tensor_batch["uid"], 
+                                new_batch.non_tensor_batch["overlong"], strict=True
+                            ):
+                                prompt_uid2overlong_vals[uid] += overlong
+
+                            overlong_uids = [
+                                uid for uid, num in prompt_uid2overlong_vals.items()
+                                if (
+                                    (num / self.config.actor_rollout_ref.rollout.n)
+                                    >=
+                                    self.config.reward_model.overlong_buffer.exclude
+                                )
+                            ]
+
+                            # overlong_uids = set([
+                            #     uid
+                            #     for uid, overlong in zip(
+                            #         new_batch.non_tensor_batch["uid"], 
+                            #         new_batch.non_tensor_batch["overlong"], 
+                            #         strict=True
+                            #     )
+                            #     if overlong 
+                            # ])
+                            kept_prompt_uids = [
+                                uid for uid in kept_prompt_uids if
+                                uid in overlong_uids
+                            ]
+
                         num_prompt_in_batch += len(kept_prompt_uids)
 
                         kept_traj_idxs = []
