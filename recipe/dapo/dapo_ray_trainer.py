@@ -257,6 +257,12 @@ class RayDAPOTrainer(RayPPOTrainer):
                                     self.config.reward_model.overlong_buffer.exclude
                                 )
                             ]
+                            metrics.update(
+                                {
+                                    'overlong/uids': len(overlong_uids),
+                                    'overlong/exclude': self.config.reward_model.overlong_buffer.exclude
+                                }
+                            )
 
                             # overlong_uids = set([
                             #     uid
@@ -269,7 +275,7 @@ class RayDAPOTrainer(RayPPOTrainer):
                             # ])
                             kept_prompt_uids = [
                                 uid for uid in kept_prompt_uids if
-                                uid in overlong_uids
+                                uid not in overlong_uids
                             ]
 
                         num_prompt_in_batch += len(kept_prompt_uids)
