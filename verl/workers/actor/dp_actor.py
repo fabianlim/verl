@@ -396,6 +396,13 @@ class DataParallelPPOActor(BasePPOActor):
         metrics = {}
         for _ in range(self.config.ppo_epochs):
             for batch_idx, mini_batch in enumerate(mini_batches):
+                if torch.distributed.get_rank() == 0:
+                    if batch_idx == 0:
+                        print(f"Performing ON-policy update ({batch_idx=})")
+                    else:
+                        print(f"Performing OFF-policy update ({batch_idx=})")
+
+
                 if self.config.use_dynamic_bsz:
                     max_token_len = self.config.ppo_max_token_len_per_gpu * self.ulysses_sequence_parallel_size
                     micro_batches, _ = prepare_dynamic_batch(mini_batch, max_token_len=max_token_len)
