@@ -77,6 +77,21 @@ def _compute_response_info(batch: DataProto) -> dict[str, Any]:
     )
 
 
+def get_masked_mean(t: torch.Tensor, mask: torch.Tensor) -> float:
+    """
+    Returns the proper mean over all unmasked elements of the tensor t, first performing the mean
+    over the seq dim, then over the batch dim.
+    """
+    t_masked = torch.where(mask, t, 0.0)
+    sums = t_masked.sum(dim=-1)
+    counts = mask.sum(dim=-1).float()
+    seq_dim_mean = sums / counts
+    print(f"{seq_dim_mean=}")
+    print(f"{seq_dim_mean.shape=}")
+    print(f"{seq_dim_mean.sum()=}")
+    return seq_dim_mean.mean(dim=0).item()
+
+
 def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> dict[str, Any]:
     """
     Computes various metrics from a batch of data for PPO training.
@@ -121,6 +136,19 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> dict[str,
     valid_adv = torch.masked_select(advantages, response_mask)
     valid_returns = torch.masked_select(returns, response_mask)
 
+    # Compute proper seq-level rewards, rather than token weighted ones.
+    # 1. For the mean seq level reward, only a single gets the rewards score and everything else is
+    # zeros.
+    # https://github.com/garrett361/verl/blob/ebf870797882918a78e6cf2229ccd69cdb6b5e8d/verl/workers/reward_manager/dapo.py?plain=1#L125
+    # 2. For the mean seq level advantage, we need to take a mean over non-masked tokens only.
+
+    batch_size = sequence_score.shape[0]
+    proper_seq_reward = batch.batch["token_level_rewards"][
+        torch.arange(batch_size, device=sequence_score.device),
+        response_mask.sum(dim=-1, dtype=torch.int32) - 1,
+    ].mean()
+    proper_seq_advantage = get_masked_mean(advantages, response_mask)
+
     if use_critic:
         values = batch.batch["values"]
         valid_values = torch.masked_select(values, response_mask)
@@ -144,6 +172,9 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> dict[str,
         "critic/returns/mean": torch.mean(valid_returns).detach().item(),
         "critic/returns/max": torch.max(valid_returns).detach().item(),
         "critic/returns/min": torch.min(valid_returns).detach().item(),
+        # proper seq level advantages and rewards
+        "critic/advantages/seq_mean": proper_seq_advantage,
+        "critic/rewards/seq_mean": proper_seq_reward,
         **(
             {
                 # values
