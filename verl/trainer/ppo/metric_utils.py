@@ -86,9 +86,6 @@ def get_masked_mean(t: torch.Tensor, mask: torch.Tensor) -> float:
     sums = t_masked.sum(dim=-1)
     counts = mask.sum(dim=-1).float()
     seq_dim_mean = sums / counts
-    print(f"{seq_dim_mean=}")
-    print(f"{seq_dim_mean.shape=}")
-    print(f"{seq_dim_mean.sum()=}")
     return seq_dim_mean.mean(dim=0).item()
 
 
