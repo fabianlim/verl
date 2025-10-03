@@ -104,6 +104,13 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> dict[str,
     sequence_score = batch.batch["token_level_scores"].sum(-1)
     sequence_reward = batch.batch["token_level_rewards"].sum(-1)
 
+    # NOTE: @goon -  sequence_reward will include the whatever score we might assign to overlong
+    # answers, which does not directly reflect task perf. Also compute the rewards with overlong
+    # entries zeroed out.
+    # Assumption: zero means wrong.
+    overlong_mask = torch.from_numpy(batch.non_tensor_batch["overlong"]).to(device=sequence_reward.device)
+    sequence_reward_overlong_masked = sequence_reward.masked_fill(overlong_mask, 0.0)
+
     advantages = batch.batch["advantages"]
     returns = batch.batch["returns"]
 
@@ -136,6 +143,10 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> dict[str,
         "critic/rewards/mean": torch.mean(sequence_reward).detach().item(),
         "critic/rewards/max": torch.max(sequence_reward).detach().item(),
         "critic/rewards/min": torch.min(sequence_reward).detach().item(),
+        # rewards overlong masked
+        "critic/rewards_overlong_masked/mean": torch.mean(sequence_reward_overlong_masked).detach().item(),
+        "critic/rewards_overlong_masked/max": torch.max(sequence_reward_overlong_masked).detach().item(),
+        "critic/rewards_overlong_masked/min": torch.min(sequence_reward_overlong_masked).detach().item(),
         # adv
         "critic/advantages/mean": torch.mean(valid_adv).detach().item(),
         "critic/advantages/max": torch.max(valid_adv).detach().item(),
