@@ -42,6 +42,10 @@ gen_prompt_bsz=$((train_prompt_bsz * 3))
 n_resp_per_prompt=16
 train_prompt_mini_bsz=${TRAIN_PROMPT_MINI_BSZ:-32}
 
+# tis
+calculate_log_probs=${CALCULATE_LOG_PROBS:-False}
+tis_imp_ratio_cap=${TIS_IMP_RATIO_CAP:--1.0}
+
 # Ray
 RAY_ADDRESS=${RAY_ADDRESS:-"http://localhost:8265"}
 WORKING_DIR=${WORKING_DIR:-"${PWD}"}
@@ -111,6 +115,8 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     actor_rollout_ref.actor.grad_clip=1.0 \
     actor_rollout_ref.actor.loss_agg_mode=${loss_agg_mode} \
     actor_rollout_ref.actor.ulysses_sequence_parallel_size=${sp_size} \
+    actor_rollout_ref.actor.tis_imp_ratio_cap=${tis_imp_ratio_cap} \
+    actor_rollout_ref.rollout.calculate_log_probs=${calculate_log_probs} \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.80 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=${gen_tp} \
     actor_rollout_ref.rollout.enable_chunked_prefill=True \
