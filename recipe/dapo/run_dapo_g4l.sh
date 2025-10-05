@@ -75,6 +75,7 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     actor_rollout_ref.rollout.val_kwargs.top_k=${top_k:--1} \
     actor_rollout_ref.rollout.val_kwargs.top_p=${val_top_p:-0.7} \
     algorithm.adv_estimator=${adv_estimator:-grpo} \
+    algorithm.norm_adv_by_std_in_grpo=${norm_adv_by_std:-True} \
     algorithm.filter_groups.enable=${enable_filter_groups:-True} \
     algorithm.filter_groups.max_num_gen_batches=${max_num_gen_batches:-10} \
     algorithm.filter_groups.metric=${filter_groups_metric:-acc} \
