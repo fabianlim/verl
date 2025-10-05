@@ -108,8 +108,11 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> dict[str,
     # answers, which does not directly reflect task perf. Also compute the rewards with overlong
     # entries zeroed out.
     # Assumption: zero means wrong.
-    overlong_mask = torch.from_numpy(batch.non_tensor_batch["overlong"]).to(device=sequence_reward.device)
-    sequence_reward_overlong_masked = sequence_reward.masked_fill(overlong_mask, 0.0)
+    if "overlong" in batch.non_tensor_batch:
+        overlong_mask = torch.from_numpy(batch.non_tensor_batch["overlong"]).to(device=sequence_reward.device)
+        sequence_reward_overlong_masked = sequence_reward.masked_fill(overlong_mask, 0.0)
+    else:
+        overlong_mask = sequence_reward_overlong_masked = None
 
     advantages = batch.batch["advantages"]
     returns = batch.batch["returns"]
@@ -143,10 +146,6 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> dict[str,
         "critic/rewards/mean": torch.mean(sequence_reward).detach().item(),
         "critic/rewards/max": torch.max(sequence_reward).detach().item(),
         "critic/rewards/min": torch.min(sequence_reward).detach().item(),
-        # rewards overlong masked
-        "critic/rewards_overlong_masked/mean": torch.mean(sequence_reward_overlong_masked).detach().item(),
-        "critic/rewards_overlong_masked/max": torch.max(sequence_reward_overlong_masked).detach().item(),
-        "critic/rewards_overlong_masked/min": torch.min(sequence_reward_overlong_masked).detach().item(),
         # adv
         "critic/advantages/mean": torch.mean(valid_adv).detach().item(),
         "critic/advantages/max": torch.max(valid_adv).detach().item(),
@@ -180,6 +179,11 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> dict[str,
         "prompt_length/min": torch.min(prompt_length).detach().item(),
         "prompt_length/clip_ratio": torch.mean(torch.eq(prompt_length, max_prompt_length).float()).detach().item(),
     }
+
+    if sequence_reward_overlong_masked is not None:
+        metrics["critic/rewards_overlong_masked/mean"] = (torch.mean(sequence_reward_overlong_masked).detach().item(),)
+        metrics["critic/rewards_overlong_masked/max"] = (torch.max(sequence_reward_overlong_masked).detach().item(),)
+        metrics["critic/rewards_overlong_masked/min"] = (torch.min(sequence_reward_overlong_masked).detach().item(),)
 
     # multi-turn conversation
     if "__num_turns__" in batch.non_tensor_batch:
