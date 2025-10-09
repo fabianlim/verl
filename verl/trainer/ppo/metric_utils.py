@@ -22,6 +22,7 @@ from typing import Any, Callable
 import numpy as np
 import torch
 
+import verl.utils.torch_functional as verl_F
 from verl import DataProto
 from verl.utils.import_utils import deprecated
 
@@ -181,9 +182,34 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> dict[str,
     }
 
     if sequence_reward_overlong_masked is not None:
-        metrics["critic/rewards_overlong_masked/mean"] = (torch.mean(sequence_reward_overlong_masked).detach().item(),)
-        metrics["critic/rewards_overlong_masked/max"] = (torch.max(sequence_reward_overlong_masked).detach().item(),)
-        metrics["critic/rewards_overlong_masked/min"] = (torch.min(sequence_reward_overlong_masked).detach().item(),)
+        metrics["critic/rewards_overlong_masked/mean"] = torch.mean(sequence_reward_overlong_masked).detach().item()
+        metrics["critic/rewards_overlong_masked/max"] = torch.max(sequence_reward_overlong_masked).detach().item()
+        metrics["critic/rewards_overlong_masked/min"] = torch.min(sequence_reward_overlong_masked).detach().item()
+
+    if "rollout_log_probs" in batch.batch:
+        # NOTE: @goon -  compute the KL diverences using two methods:
+        # 1) Same way as core_algo.py
+        # 2) Through Schulman's unbiased estimators: http://joschu.net/blog/kl-approx.html
+
+        # We compute:
+        # a) KL[q_vllm, p_fsdp] = E_{x~q_vllm}[ln(p_fsdp/q_vllm)]
+        # b) KL[p_fsdp, q_vllm] = E_{x~p_fsdp}[ln(q_vllm/p_fsdp)] = E_{x~p_fsdp}[q_vllm/p_fsdp *  ln(q_vllm/p_fsdp)]
+        # Plus additional terms whose expectation is zero in the case of Schulman's method.
+
+        # NOTE: @goon - we assume temp = 1.0 here.
+
+        vllm_logits = batch.batch["rollout_log_probs"]
+        fsdp_logits = batch.batch["old_log_probs"]
+        response_mask = batch.batch["response_mask"]
+        fsdp_vllm_ratio = (fsdp_logits - vllm_logits).exp()
+        core_algo_kl_vllm_fsdp = verl_F.masked_mean(vllm_logits - fsdp_logits, response_mask)
+        core_algo_kl_fsdp_vllm = verl_F.masked_mean(fsdp_vllm_ratio * (fsdp_logits - vllm_logits), response_mask)
+        js_kl_vllm_fsdp = core_algo_kl_vllm_fsdp + verl_F.masked_mean(fsdp_vllm_ratio - 1, response_mask)
+        js_kl_fsdp_vllm = core_algo_kl_fsdp_vllm + verl_F.masked_mean(1 - fsdp_vllm_ratio, response_mask)
+        metrics["kl/core_algo/vllm_fsdp"] = core_algo_kl_vllm_fsdp.detach().item()
+        metrics["kl/core_algo/fsdp_vllm"] = core_algo_kl_fsdp_vllm.detach().item()
+        metrics["kl/js/vllm_fsdp"] = js_kl_vllm_fsdp.detach().item()
+        metrics["kl/js/fsdp_vllm"] = js_kl_fsdp_vllm.detach().item()
 
     # multi-turn conversation
     if "__num_turns__" in batch.non_tensor_batch:
