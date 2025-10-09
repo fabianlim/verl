@@ -186,9 +186,11 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> dict[str,
         vllm_logits = batch.batch["rollout_log_probs"]
         fsdp_logits = batch.batch["old_log_probs"]
         response_mask = batch.batch["response_mask"]
-        fsdp_vllm_ratio = (fsdp_logits - vllm_logits).exp()
-        core_algo_kl_vllm_fsdp = verl_F.masked_mean(vllm_logits - fsdp_logits, response_mask)
-        core_algo_kl_fsdp_vllm = verl_F.masked_mean(fsdp_vllm_ratio * (fsdp_logits - vllm_logits), response_mask)
+        # Follow core_algos.py an clamp
+        fsdp_vllm_logits_diff = torch.clamp(fsdp_logits - vllm_logits, min=-20.0, max=20.0)
+        fsdp_vllm_ratio = fsdp_vllm_logits_diff.exp()
+        core_algo_kl_vllm_fsdp = -1 * verl_F.masked_mean(fsdp_vllm_logits_diff, response_mask)
+        core_algo_kl_fsdp_vllm = verl_F.masked_mean(fsdp_vllm_ratio * fsdp_vllm_logits_diff, response_mask)
         js_kl_vllm_fsdp = core_algo_kl_vllm_fsdp + verl_F.masked_mean(fsdp_vllm_ratio - 1, response_mask)
         js_kl_fsdp_vllm = core_algo_kl_fsdp_vllm + verl_F.masked_mean(1 - fsdp_vllm_ratio, response_mask)
         metrics["kl/core_algo/vllm_fsdp"] = core_algo_kl_vllm_fsdp.detach().item()
