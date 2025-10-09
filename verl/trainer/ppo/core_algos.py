@@ -868,6 +868,9 @@ def compute_policy_loss_vanilla(
     negative_approx_kl = torch.clamp(negative_approx_kl, min=-20.0, max=20.0)
     ratio = torch.exp(negative_approx_kl)
     ppo_kl = verl_F.masked_mean(-negative_approx_kl, response_mask)
+    # NOTE: @goon -  add an expectation-zero term which ensures a positive estimator
+    # http://joschu.net/blog/kl-approx.html
+    ppo_kl += verl_F.masked_mean(ratio - 1, response_mask)
 
     pg_losses1 = -advantages * ratio
     if cliprange_low is None:
