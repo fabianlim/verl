@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -xeuo pipefail
 
-project_name='DAPOskywork'
-exp_name='DAPOskywork-Qwen2.5-72B'
+project_name=${PROJECT_NAME:-'DAPOskywork'}
+exp_name=${EXPR_NAME:-'DAPOskywork-Qwen2.5-72B'}
 
 adv_estimator=grpo
 
@@ -11,7 +11,7 @@ kl_coef=0.0
 use_kl_loss=False
 kl_loss_coef=0.0
 
-clip_ratio_low=0.2
+clip_ratio_low=${CLIP_RATIO_LOW:-0.2}
 clip_ratio_high=${CLIP_RATIO_HIGH:-0.38}
 
 ENTROPY_COEFF=${ENTROPY_COEFF:-0.0} # Do we need to adjust this?
@@ -21,21 +21,22 @@ DELTA_ENT_COEF=${DELTA_ENT_COEF:-0.0001}
 MAX_ENT_COEF=${MAX_ENT_COEF:-0.005}
 
 
+MAX_RESP_LEN_MULT=${MAX_RESP_LEN_MULT:-20}
 max_prompt_length=$((1024 * 2))
-max_response_length=$((1024 * 20))
-enable_overlong_buffer=True
-overlong_buffer_len=$((1024 * 4))
-overlong_penalty_factor=1.0
+max_response_length=$((1024 * $MAX_RESP_LEN_MULT))
+enable_overlong_buffer=${enable_overlong_buffer:-False}
+overlong_buffer_len=${overlong_buffer_len:-$((1024 * 4))}
+overlong_penalty_factor=${overlong_penalty_factor:-1.0}
 
 loss_agg_mode="token-mean"
 
 enable_filter_groups=True
 filter_groups_metric=acc
 max_num_gen_batches=10
-train_prompt_bsz=512
-gen_prompt_bsz=$((train_prompt_bsz * 3))
+train_prompt_bsz=${train_prompt_bsz:-512}
+gen_prompt_bsz=${gen_prompt_bsz:-$((train_prompt_bsz * 3))}
 n_resp_per_prompt=16
-train_prompt_mini_bsz=32
+train_prompt_mini_bsz=${train_prompt_mini_bsz:-32}
 
 # Ray
 RAY_ADDRESS=${RAY_ADDRESS:-"http://localhost:8265"}
@@ -51,8 +52,8 @@ TEST_FILE=${TEST_FILE:-"${RAY_DATA_HOME}/data/aime-2024.parquet"}
 
 # Algorithm
 temperature=1.0
-top_p=1.0
-top_k=-1 # 0 for HF rollout, -1 for vLLM rollout
+top_p=${top_p:-1.0}
+top_k=${top_k:--1} # 0 for HF rollout, -1 for vLLM rollout
 val_top_p=0.7
 
 # Performance Related Parameter
@@ -65,7 +66,7 @@ gen_tp=8
 
 ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     --working-dir "${WORKING_DIR}" \
-    --submission-id run_72b \
+    --submission-id ${SUBMISSION_ID} \
     -- python3 -m recipe.dapo.main_dapo \
     data.train_files="${TRAIN_FILE}" \
     data.val_files="${TEST_FILE}" \
@@ -87,11 +88,13 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     algorithm.filter_groups.enable=${enable_filter_groups} \
     algorithm.filter_groups.max_num_gen_batches=${max_num_gen_batches} \
     algorithm.filter_groups.metric=${filter_groups_metric} \
+    algorithm.norm_adv_by_std_in_grpo=${norm_adv_by_std:-True} \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.use_dynamic_bsz=${use_dynamic_bsz} \
     actor_rollout_ref.ref.log_prob_use_dynamic_bsz=${use_dynamic_bsz} \
     actor_rollout_ref.rollout.log_prob_use_dynamic_bsz=${use_dynamic_bsz} \
     actor_rollout_ref.actor.ppo_max_token_len_per_gpu=${actor_ppo_max_token_len} \
+    actor_rollout_ref.actor.tis_imp_ratio_cap=${tis_imp_ratio_cap:-1} \
     actor_rollout_ref.ref.log_prob_max_token_len_per_gpu=${infer_ppo_max_token_len} \
     actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu=${infer_ppo_max_token_len} \
     actor_rollout_ref.model.path="${MODEL_PATH}" \
@@ -107,6 +110,7 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     actor_rollout_ref.actor.loss_agg_mode=${loss_agg_mode} \
     actor_rollout_ref.actor.ulysses_sequence_parallel_size=${sp_size} \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.80 \
+    actor_rollout_ref.rollout.calculate_log_probs=${calculate_log_probs:-False} \
     actor_rollout_ref.rollout.tensor_model_parallel_size=${gen_tp} \
     actor_rollout_ref.rollout.enable_chunked_prefill=True \
     actor_rollout_ref.rollout.max_num_batched_tokens=$((max_prompt_length + max_response_length)) \
@@ -126,10 +130,11 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     actor_rollout_ref.actor.target_entropy=${TGT_ENTROPY} \
     actor_rollout_ref.actor.entropy_coeff_delta=${DELTA_ENT_COEF} \
     actor_rollout_ref.actor.entropy_coeff_max=${MAX_ENT_COEF} \
-    reward_model.reward_manager=dapo \
+    reward_model.reward_manager=${reward_manager:-dapo} \
     reward_model.overlong_buffer.enable=${enable_overlong_buffer} \
     reward_model.overlong_buffer.len=${overlong_buffer_len} \
     reward_model.overlong_buffer.penalty_factor=${overlong_penalty_factor} \
+    trainer.log_val_generations=${log_val_generations:-0} \
     trainer.logger='["console","wandb"]' \
     trainer.project_name="${project_name}" \
     trainer.experiment_name="${exp_name}" \
@@ -137,7 +142,7 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     trainer.nnodes="${NNODES}" \
     trainer.val_before_train=True \
     trainer.test_freq=5 \
-    trainer.save_freq=200 \
+    trainer.save_freq=${save_freq:-200} \
     trainer.total_epochs=1 \
     trainer.default_local_dir="${CKPTS_DIR}" \
     trainer.resume_mode=auto
