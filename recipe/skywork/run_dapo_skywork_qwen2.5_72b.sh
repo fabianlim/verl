@@ -2,7 +2,7 @@
 set -xeuo pipefail
 
 project_name='DAPOskywork'
-exp_name='DAPOskywork-Qwen2.5-72B'
+exp_name=${EXP_NAME:-'DAPOskywork-Qwen2.5-72B'}
 
 adv_estimator=grpo
 
@@ -39,6 +39,7 @@ filter_groups_metric=acc
 max_num_gen_batches=10
 train_prompt_bsz=${TRAIN_PROMPT_BSZ:-512}
 gen_prompt_bsz=$((train_prompt_bsz * 3))
+gen_prompt_bsz=${GEN_PROMPT_BSZ:-$gen_prompt_bsz}
 n_resp_per_prompt=16
 train_prompt_mini_bsz=${TRAIN_PROMPT_MINI_BSZ:-32}
 
@@ -96,6 +97,7 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     algorithm.filter_groups.enable=${enable_filter_groups} \
     algorithm.filter_groups.max_num_gen_batches=${max_num_gen_batches} \
     algorithm.filter_groups.metric=${filter_groups_metric} \
+    algorithm.norm_adv_by_std_in_grpo=${norm_adv_by_std:-True} \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.use_dynamic_bsz=${use_dynamic_bsz} \
     actor_rollout_ref.ref.log_prob_use_dynamic_bsz=${use_dynamic_bsz} \
