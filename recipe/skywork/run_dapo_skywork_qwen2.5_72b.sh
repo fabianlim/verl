@@ -68,6 +68,7 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     --working-dir "${WORKING_DIR}" \
     --submission-id ${SUBMISSION_ID} \
     -- python3 -m recipe.dapo.main_dapo \
+    +data.apply_chat_template_kwargs.thinking=${thinking:-False} \
     data.train_files="${TRAIN_FILE}" \
     data.val_files="${TEST_FILE}" \
     data.prompt_key=prompt \
