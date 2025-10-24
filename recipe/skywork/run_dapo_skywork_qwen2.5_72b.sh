@@ -66,7 +66,7 @@ gen_tp=8
 
 ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     --working-dir "${WORKING_DIR}" \
-    --submission-id ${SUBMISSION_ID} \
+    --submission-id ${SUBMISSION_ID:-72b} \
     -- python3 -m recipe.dapo.main_dapo \
     +data.apply_chat_template_kwargs.thinking=${thinking:-False} \
     data.train_files="${TRAIN_FILE}" \
