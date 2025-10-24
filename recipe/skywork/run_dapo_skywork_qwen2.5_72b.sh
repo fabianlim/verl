@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -xeuo pipefail
 
-project_name=${PROJECT_NAME:-'DAPOskywork'}
-exp_name=${EXPR_NAME:-'DAPOskywork-Qwen2.5-72B'}
+project_name=${project_name:-'DAPOskywork'}
+exp_name=${exp_name:-'DAPOskywork-Qwen2.5-72B'}
 
 adv_estimator=grpo
 
