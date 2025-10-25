@@ -114,6 +114,7 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.80 \
     actor_rollout_ref.rollout.calculate_log_probs=${calculate_log_probs:-False} \
     actor_rollout_ref.rollout.tensor_model_parallel_size=${gen_tp} \
+    actor_rollout_ref.rollout.enforce_eager=${enforce_eager:-False} \
     actor_rollout_ref.rollout.enable_chunked_prefill=True \
     actor_rollout_ref.rollout.max_num_batched_tokens=$((max_prompt_length + max_response_length)) \
     actor_rollout_ref.rollout.temperature=${temperature} \
