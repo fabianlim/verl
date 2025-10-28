@@ -15,6 +15,8 @@ reward_model:
     enable: False # We try to avoid forgetting to set enable
     len: 0
     penalty_factor: 0.0
+    rep_tail: 0 # set > 0 to enable
+    rep_threshold: 0.5 
     log: False
     exclude: -1.0 # if exceed this fraction of overlong responses, exclude from batch
 

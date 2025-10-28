@@ -19,6 +19,7 @@ import torch
 from verl import DataProto
 from verl.workers.reward_manager import register
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from typing import List
 from tqdm import tqdm
 import numpy as np
 from verl.utils.reward_score.skywork import compute_score as skywork_compute_score
@@ -131,6 +132,29 @@ class YRRewardManager:
                     # - so we just put a different value
                     reward = self.overlong_buffer_cfg.penalty_factor # HIJACK THIS
 
+            if self.overlong_buffer_cfg.rep_tail:
+                tail = self.overlong_buffer_cfg.rep_tail
+                threshold = self.overlong_buffer_cfg.rep_threshold
+                rep_spans = find_repetitions(
+                    response_ids[i][
+                        max(valid_response_length[i]-tail,0):
+                        valid_response_length[i]
+                    ].numpy(), 
+                    return_spans=True
+                )
+                rep_tokens = sum([e-s for s,e in rep_spans])
+                rep_ratio = rep_tokens / tail
+
+                if rep_ratio > threshold:
+                    reward = self.overlong_buffer_cfg.penalty_factor # HIJACK THIS
+
+                reward_extra_info['overlong_rep_tokens'].append(rep_tokens)
+                reward_extra_info['overlong_rep_ratio'].append(rep_ratio)
+                reward_extra_info['overlong_rep_ratio_clip'].append(rep_ratio > threshold)
+                reward_extra_info['overlong_rep_tail'].append(tail)
+                reward_extra_info['overlong_rep_threshold'].append(threshold)
+
+
             reward_tensor[i, valid_response_length[i].item() - 1] = reward
 
             if data_source not in already_print_data_sources:
@@ -150,3 +174,71 @@ class YRRewardManager:
             }
         else:
             return reward_tensor
+
+# function for finding repetitions
+def find_repetitions(
+    tokens: List, 
+    min_len: int = 2,
+    return_spans: bool = False,
+):
+
+    # - map from position -> last seen index most
+    #   recent
+    most_recent_idx = {}
+
+    # - store all the repeats in format
+    #   (idx, start_of_repeat)
+    repeats = []
+
+    # - some constants
+    N = len(tokens) # length
+
+    # - 
+    # - start of repeat
+    # - current idx
+    mri_prev, start_rep, n = None, -1, -1
+
+    # loop over tokens
+    while n < N:
+
+        # advance 
+        x = tokens[n]
+        
+        # index which the current token appeared before
+        mri_curr = most_recent_idx.get(x)
+        most_recent_idx[x] = n # update
+        
+        # - if x was seen before and one of two conds
+        # 1. x was also the prev token (i.e, if tokens[n-1] == x)
+        # 2. the prev token was seen one position behind position
+        #    current token was also last seen
+        if (
+            (mri_curr is not None) and 
+            (
+                (n > 0 and x == tokens[n-1]) 
+                or
+                (mri_prev is not None and mri_curr == (mri_prev + 1))
+            )
+        ):
+            repeats.append((n, start_rep))
+        else:
+            # this will be a new pattern, record
+            # this pos as the start of (potential) future repeats
+            start_rep = n 
+
+        # for next loop
+        mri_prev = mri_curr
+        n += 1
+
+    if not return_spans:
+        return repeats
+
+    # convert to spans
+    spans = {}
+    for e, s in repeats:
+        spans[s] = max(e, spans.get(s,-1))
+  
+    return [
+        (s,e+1) for s, e in spans.items() 
+        if (e-s+1) >= min_len
+    ]
