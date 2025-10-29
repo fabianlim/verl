@@ -51,7 +51,7 @@ TRAIN_FILE=${TRAIN_FILE:-"${RAY_DATA_HOME}/data/dapo-math-17k.parquet"}
 TEST_FILE=${TEST_FILE:-"${RAY_DATA_HOME}/data/aime-2024.parquet"}
 
 # Algorithm
-temperature=1.0
+temperature=${temperature:-1.0}
 top_p=${top_p:-1.0}
 top_k=${top_k:--1} # 0 for HF rollout, -1 for vLLM rollout
 val_top_p=0.7
