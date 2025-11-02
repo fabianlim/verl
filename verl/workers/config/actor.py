@@ -220,6 +220,7 @@ class FSDPActorConfig(ActorConfig):
 
     strategy: str = "fsdp"
     grad_clip: float = 1.0
+    dtype: str = 'bfloat16'
     ulysses_sequence_parallel_size: int = 1
     entropy_from_logits_with_chunking: bool = False
     entropy_checkpointing: bool = False
