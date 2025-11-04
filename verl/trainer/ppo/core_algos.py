@@ -912,6 +912,7 @@ def compute_policy_loss_gspo(
     response_mask: torch.Tensor,
     loss_agg_mode: str = "seq-mean-token-mean",
     config: Optional[DictConfig | ActorConfig] = None,
+    rollout_log_probs=None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Compute the clipped policy objective and related metrics for GSPO.
