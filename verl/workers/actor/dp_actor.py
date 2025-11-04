@@ -93,6 +93,9 @@ class DataParallelPPOActor(BasePPOActor):
             self.scaler = ShardedGradScaler(growth_interval=400)
         else:
             self.scaler = None
+            if self.config.dtype == "float32":
+                # needed?
+                torch.backends.cuda.matmul.allow_tf32 = True
 
     def _forward_micro_batch(
         self, micro_batch, temperature, calculate_entropy=False

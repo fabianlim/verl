@@ -279,6 +279,8 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
 
         vllm_dtype = PrecisionType.to_dtype(self.config.rollout.dtype)
         torch_dtype = fsdp_config.get("model_dtype", None)
+        if self.config.rollout.dtype == "float32":
+            torch.backends.cuda.matmul.allow_tf32 = True
         if torch_dtype is None:
             torch_dtype = torch.float32 if self._is_actor else vllm_dtype
         else:
