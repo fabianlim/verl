@@ -278,9 +278,11 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
                 self.tokenizer.chat_template = self.config.model.custom_chat_template
 
         vllm_dtype = PrecisionType.to_dtype(self.config.rollout.dtype)
+        attn_implementation = "flash_attention_2"
         torch_dtype = fsdp_config.get("model_dtype", None)
         if self.config.rollout.dtype == "float32":
             torch.backends.cuda.matmul.allow_tf32 = True
+            attn_implementation = "sdpa"
         if torch_dtype is None:
             torch_dtype = torch.float32 if self._is_actor else vllm_dtype
         else:
@@ -288,7 +290,8 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
 
         # override model kwargs
         actor_model_config = AutoConfig.from_pretrained(
-            local_path, trust_remote_code=trust_remote_code, attn_implementation="flash_attention_2"
+            local_path, trust_remote_code=trust_remote_code, 
+            attn_implementation=attn_implementation
         )
 
         # patch for kimi-vl
