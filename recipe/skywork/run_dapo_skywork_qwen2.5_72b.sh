@@ -77,6 +77,7 @@ ray job submit --no-wait --runtime-env="${RUNTIME_ENV}" \
     data.max_response_length=${max_response_length} \
     data.gen_batch_size=${gen_prompt_bsz} \
     data.train_batch_size=${train_prompt_bsz} \
+    actor_rollout_ref.nccl_timeout=${nccl_timeout:-600} \
     actor_rollout_ref.rollout.n=${n_resp_per_prompt} \
     algorithm.adv_estimator=${adv_estimator} \
     algorithm.use_kl_in_reward=${use_kl_in_reward} \
