@@ -329,64 +329,65 @@ def apply_monkey_patch(
             flash_attention._flash_attention_forward = _ulysses_flash_attention_forward
             print(f"Monkey patch _flash_attention_forward in {flash_attention.__name__}")
 
-            from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
-            def _sdpa_attention_forward(
-                module: torch.nn.Module,
-                query: torch.Tensor,
-                key: torch.Tensor,
-                value: torch.Tensor,
-                *args,
-                **kwargs,
-            ) -> tuple[torch.Tensor, None]:
-
-                def _flash_impl(
-                    q: torch.Tensor,
-                    k: torch.Tensor,
-                    v: torch.Tensor,
+            if ulysses_sp_size > 1:
+                from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
+                def _sdpa_attention_forward(
+                    module: torch.nn.Module,
+                    query: torch.Tensor,
+                    key: torch.Tensor,
+                    value: torch.Tensor,
                     *args,
-                    position_ids=None,
                     **kwargs,
-                ):
-                    from transformers.modeling_flash_attention_utils import  prepare_fa_kwargs_from_position_ids
-                    (sizes, _), __ = prepare_fa_kwargs_from_position_ids(position_ids)
-                    sizes = sizes.diff().tolist()
-                    q = torch.nested.nested_tensor(
-                        torch.split(q.squeeze(0), sizes, dim=1), 
-                        layout=torch.jagged,
-                    )
-                    k = torch.nested.nested_tensor(
-                        torch.split(k.squeeze(0), sizes, dim=1), 
-                        layout=torch.jagged,
-                    )
-                    v = torch.nested.nested_tensor(
-                        torch.split(v.squeeze(0), sizes, dim=1), 
-                        layout=torch.jagged,
-                    )
-                    attn_output = torch.nn.functional.scaled_dot_product_attention(
-                        q,
-                        k,
-                        v,
-                        attn_mask=None,
-                        dropout_p=0.0,
-                        scale=None,
-                        is_causal=True,
-                    )
-                    # b, s, h, d
-                    return torch.concat(
-                        list(attn_output), dim=1
-                    ).unsqueeze(0)
+                ) -> tuple[torch.Tensor, None]:
 
-                return _ulysses_flash_attention_forward(
-                    query, key, value, *args,
-                    flash_impl=_flash_impl,
-                    transpose=True,
-                    gqa=False,
-                    **kwargs,
-                ), None
+                    def _flash_impl(
+                        q: torch.Tensor,
+                        k: torch.Tensor,
+                        v: torch.Tensor,
+                        *args,
+                        position_ids=None,
+                        **kwargs,
+                    ):
+                        from transformers.modeling_flash_attention_utils import  prepare_fa_kwargs_from_position_ids
+                        (sizes, _), __ = prepare_fa_kwargs_from_position_ids(position_ids)
+                        sizes = sizes.diff().tolist()
+                        q = torch.nested.nested_tensor(
+                            torch.split(q.squeeze(0), sizes, dim=1), 
+                            layout=torch.jagged,
+                        )
+                        k = torch.nested.nested_tensor(
+                            torch.split(k.squeeze(0), sizes, dim=1), 
+                            layout=torch.jagged,
+                        )
+                        v = torch.nested.nested_tensor(
+                            torch.split(v.squeeze(0), sizes, dim=1), 
+                            layout=torch.jagged,
+                        )
+                        attn_output = torch.nn.functional.scaled_dot_product_attention(
+                            q,
+                            k,
+                            v,
+                            attn_mask=None,
+                            dropout_p=0.0,
+                            scale=None,
+                            is_causal=True,
+                        )
+                        # b, s, h, d
+                        return torch.concat(
+                            list(attn_output), dim=1
+                        ).unsqueeze(0)
 
-            # sdpa_attention.sdpa_attention_forward = partial(
-            ALL_ATTENTION_FUNCTIONS['sdpa'] = _sdpa_attention_forward
-            print(f"Monkey patch sdpa_attention_forward in {ALL_ATTENTION_FUNCTIONS}")
+                    return _ulysses_flash_attention_forward(
+                        query, key, value, *args,
+                        flash_impl=_flash_impl,
+                        transpose=True,
+                        gqa=False,
+                        **kwargs,
+                    ), None
+
+                # sdpa_attention.sdpa_attention_forward = partial(
+                ALL_ATTENTION_FUNCTIONS['sdpa'] = _sdpa_attention_forward
+                print(f"Monkey patch sdpa_attention_forward in {ALL_ATTENTION_FUNCTIONS}")
 
     patch_forward_with_backends(model, use_fused_kernels=use_fused_kernels, fused_kernels_backend=fused_kernels_backend)
 
