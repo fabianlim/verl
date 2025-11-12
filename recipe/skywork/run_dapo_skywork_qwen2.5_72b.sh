@@ -59,8 +59,8 @@ val_top_p=0.7
 # Performance Related Parameter
 sp_size=${sp_size:-8}
 use_dynamic_bsz=True
-actor_ppo_max_token_len=$((max_prompt_length + max_response_length))
-infer_ppo_max_token_len=$((max_prompt_length + max_response_length))
+actor_ppo_max_token_len=$(((max_prompt_length + max_response_length) / sp_size))
+infer_ppo_max_token_len=$(((max_prompt_length + max_response_length) / sp_size))
 offload=True
 gen_tp=8
 
