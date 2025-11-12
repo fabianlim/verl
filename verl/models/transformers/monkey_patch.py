@@ -330,8 +330,6 @@ def apply_monkey_patch(
             print(f"Monkey patch _flash_attention_forward in {flash_attention.__name__}")
 
             from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
-            from transformers.integrations.sdpa_attention import sdpa_attention_forward
-            from functools import partial
             def _sdpa_attention_forward(
                 module: torch.nn.Module,
                 query: torch.Tensor,
@@ -340,9 +338,6 @@ def apply_monkey_patch(
                 *args,
                 **kwargs,
             ) -> tuple[torch.Tensor, None]:
-                # fac = query.shape[1] // key.shape[1]
-                # class Dummy:
-                #     num_key_value_groups = fac
 
                 def _flash_impl(
                     q: torch.Tensor,
@@ -383,10 +378,8 @@ def apply_monkey_patch(
 
                 return _ulysses_flash_attention_forward(
                     query, key, value, *args,
-                    # flash_impl=partial(sdpa_attention_forward, Dummy()), 
                     flash_impl=_flash_impl,
                     transpose=True,
-                    # nested=True,
                     gqa=False,
                     **kwargs,
                 ), None
