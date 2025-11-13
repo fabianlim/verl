@@ -37,7 +37,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 import verl.utils.torch_functional as verl_F
 from verl import DataProto
-from verl.models.transformers.monkey_patch import apply_monkey_patch
+from verl.models.transformers.monkey_patch import apply_monkey_patch, PATCH_SDPA_SETTING
 from verl.single_controller.base import Worker
 from verl.single_controller.base.decorator import Dispatch, make_nd_compute_dataproto_dispatch_fn, register
 from verl.utils import hf_processor, hf_tokenizer
@@ -352,7 +352,19 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
             actor_module.to(torch_dtype)
 
             if enable_gradient_checkpointing:
-                actor_module.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+                actor_module.gradient_checkpointing_enable(
+                    gradient_checkpointing_kwargs={
+                        "use_reentrant": (
+                            True if  # otherwise will get into trouble with jagged symbols
+                            (
+                                (attn_implementation == 'sdpa') 
+                                and 
+                                (PATCH_SDPA_SETTING == 'JAGGED')
+                            )
+                            else False
+                        )
+                    }
+                )
             if self._is_lora:
                 print("Applying LoRA to actor module")
                 actor_module.enable_input_require_grads()

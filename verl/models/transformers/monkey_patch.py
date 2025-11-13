@@ -34,6 +34,8 @@ from verl.utils.ulysses import (
     slice_input_tensor,
 )
 
+import os
+PATCH_SDPA_SETTING = os.environ.get('PATCH_SDPA', 'JAGGED')
 
 def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     """
@@ -337,12 +339,11 @@ def apply_monkey_patch(
             flash_attention._flash_attention_forward = _ulysses_flash_attention_forward
             print(f"Monkey patch _flash_attention_forward in {flash_attention.__name__}")
 
-            import os
             patch_spda, jagged = {
                 'DISABLED': (False, None),
                 'MASK': (True, False),
                 'JAGGED': (True, True),
-            }[os.environ.get('PATCH_SDPA', 'JAGGED')]
+            }[PATCH_SDPA_SETTING]
 
             if not patch_spda:
                 print(
@@ -392,15 +393,15 @@ def apply_monkey_patch(
                         from transformers.modeling_flash_attention_utils import  prepare_fa_kwargs_from_position_ids
                         (sizes, _), __ = prepare_fa_kwargs_from_position_ids(position_ids)
                         sizes = sizes.diff().tolist()
-                        q = torch.nested.nested_tensor(
+                        q = torch.nested.as_nested_tensor(
                             torch.split(q.squeeze(0), sizes, dim=1), 
                             layout=torch.jagged,
                         )
-                        k = torch.nested.nested_tensor(
+                        k = torch.nested.as_nested_tensor(
                             torch.split(k.squeeze(0), sizes, dim=1), 
                             layout=torch.jagged,
                         )
-                        v = torch.nested.nested_tensor(
+                        v = torch.nested.as_nested_tensor(
                             torch.split(v.squeeze(0), sizes, dim=1), 
                             layout=torch.jagged,
                         )
@@ -409,8 +410,8 @@ def apply_monkey_patch(
                             k,
                             v,
                             attn_mask=None,
-                            dropout_p=0.0,
-                            scale=None,
+                            dropout_p=dropout,
+                            scale=scaling,
                             is_causal=True,
                         ) # b, h, s, d
                         attn_output = torch.concat(
