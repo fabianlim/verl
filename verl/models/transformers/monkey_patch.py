@@ -54,7 +54,7 @@ def _ulysses_flash_attention_forward(
     *args,
     position_ids: Optional[torch.Tensor] = None,
     flash_impl: Callable = _flash_attention_forward,
-    transpose: bool = True,
+    flash_impl_head_bef_seq: bool = True,
     gqa: bool = True,
     **kwargs,
 ):
@@ -72,14 +72,16 @@ def _ulysses_flash_attention_forward(
     """
     ulysses_sp_size = get_ulysses_sequence_parallel_world_size()
 
-    if transpose:
-        query_states = query_states.transpose(1, 2)
-        key_states = key_states.transpose(1, 2)
-        value_states = value_states.transpose(1, 2)
 
     ########## AlltoAll for Ulysses ##########
     if ulysses_sp_size > 1:
+
         assert position_ids is not None, "position_ids is required for Ulysses sequence parallelism"
+
+        if flash_impl_head_bef_seq:
+            query_states = query_states.transpose(1, 2)
+            key_states = key_states.transpose(1, 2)
+            value_states = value_states.transpose(1, 2)
 
         # NOTE: repeat kv heads to be divided by sequence parallel. Instead of repeating nheads_q//nheads_k,
         # we choose to repeat sp_size//nheads_k, since flash_attention supports MQA/GQA.
@@ -105,21 +107,27 @@ def _ulysses_flash_attention_forward(
         torch.distributed.all_gather(position_ids_list, position_ids, group=get_ulysses_sequence_parallel_group())
         position_ids = torch.concat(position_ids_list, dim=-1)
 
+        if not gqa:
+            repeats = query_states.size(2) // key_states.size(2)
+            key_states = repeat_kv(key_states, repeats)
+            value_states = repeat_kv(value_states, repeats)
 
-    if not gqa:
-        repeats = query_states.size(2) // key_states.size(2)
-        key_states = repeat_kv(key_states, repeats)
-        value_states = repeat_kv(value_states, repeats)
+        if flash_impl_head_bef_seq:
+            query_states = query_states.transpose(1, 2)
+            key_states = key_states.transpose(1, 2)
+            value_states = value_states.transpose(1, 2)
+    else:
+        if not gqa:
+            # transpose here really means hdim == 1
+            assert flash_impl_head_bef_seq
+            repeats = query_states.size(1) // key_states.size(1)
+            key_states = torch.repeat_interleave(key_states, repeats, dim=1)
+            value_states = torch.repeat_interleave(value_states, repeats, dim=1)
 
-    if transpose:
-        query_states = query_states.transpose(1, 2)
-        key_states = key_states.transpose(1, 2)
-        value_states = value_states.transpose(1, 2)
-
-    # (bsz, seq_len, n_head/n, head_dim)
     attn_output = flash_impl(
         query_states, key_states, value_states, *args, position_ids=position_ids, **kwargs
     )
+    # output: (bsz, seq_len, n_head/n, head_dim)
 
     ########## AlltoAll for Ulysses ##########
     if ulysses_sp_size > 1:
@@ -329,14 +337,29 @@ def apply_monkey_patch(
             flash_attention._flash_attention_forward = _ulysses_flash_attention_forward
             print(f"Monkey patch _flash_attention_forward in {flash_attention.__name__}")
 
-            if ulysses_sp_size > 1:
+            import os
+            patch_spda, jagged = {
+                'DISABLED': (False, None),
+                'MASK': (True, False),
+                'JAGGED': (True, True),
+            }[os.environ.get('PATCH_SDPA', 'JAGGED')]
+
+            if not patch_spda:
+                print(
+                    "Disabled Monkey patch sdpa_attention_forward. "
+                )
+                assert ulysses_sp_size == 1, "patching of sdpa_attention_forward required for SP"
+            else:
                 from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
                 def _sdpa_attention_forward(
                     module: torch.nn.Module,
                     query: torch.Tensor,
                     key: torch.Tensor,
                     value: torch.Tensor,
-                    *args,
+                    attention_mask: Optional[torch.Tensor],
+                    dropout: float = 0.0,
+                    scaling: Optional[float] = None,
+                    is_causal: Optional[bool] = True,
                     **kwargs,
                 ) -> tuple[torch.Tensor, None]:
 
@@ -348,6 +371,24 @@ def apply_monkey_patch(
                         position_ids=None,
                         **kwargs,
                     ):
+                        if not jagged:
+                            # only works for sp_size = 1 since 
+                            # we do not gather the attention mask
+                            assert ulysses_sp_size == 1
+                            attn_output = torch.nn.functional.scaled_dot_product_attention(
+                                q,
+                                k,
+                                v,
+                                attn_mask=attention_mask,
+                                dropout_p=dropout,
+                                scale=scaling,
+                                is_causal=attention_mask is None,
+                                enable_gqa=True
+                            ) # b, h, s, d
+
+                            attn_output = attn_output.transpose(1,2).contiguous()
+                            return attn_output
+
                         from transformers.modeling_flash_attention_utils import  prepare_fa_kwargs_from_position_ids
                         (sizes, _), __ = prepare_fa_kwargs_from_position_ids(position_ids)
                         sizes = sizes.diff().tolist()
@@ -371,23 +412,28 @@ def apply_monkey_patch(
                             dropout_p=0.0,
                             scale=None,
                             is_causal=True,
-                        )
-                        # b, s, h, d
-                        return torch.concat(
+                        ) # b, h, s, d
+                        attn_output = torch.concat(
                             list(attn_output), dim=1
                         ).unsqueeze(0)
+                        attn_output = attn_output.transpose(1,2).contiguous()
+                        return attn_output
 
-                    return _ulysses_flash_attention_forward(
-                        query, key, value, *args,
+                    out = _ulysses_flash_attention_forward(
+                        query, key, value, 
+                        attention_mask,
                         flash_impl=_flash_impl,
-                        transpose=True,
-                        gqa=False,
+                        dropout=dropout,
+                        scaling=scaling,
+                        is_causal=is_causal,
+                        flash_impl_head_bef_seq=True, # kernel takes h,s
+                        gqa=jagged==False,
                         **kwargs,
-                    ), None
+                    )
+                    return out, None
 
-                # sdpa_attention.sdpa_attention_forward = partial(
                 ALL_ATTENTION_FUNCTIONS['sdpa'] = _sdpa_attention_forward
-                print(f"Monkey patch sdpa_attention_forward in {ALL_ATTENTION_FUNCTIONS}")
+                print(f"Monkey patch sdpa_attention_forward in with jagged={jagged}")
 
     patch_forward_with_backends(model, use_fused_kernels=use_fused_kernels, fused_kernels_backend=fused_kernels_backend)
 
