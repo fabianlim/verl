@@ -359,7 +359,7 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
                             (
                                 (attn_implementation == 'sdpa') 
                                 and 
-                                (PATCH_SDPA_SETTING == 'JAGGED')
+                                ('JAGGED' in PATCH_SDPA_SETTING)
                             )
                             else False
                         )
