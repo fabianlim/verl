@@ -57,7 +57,7 @@ def _ulysses_flash_attention_forward(
     position_ids: Optional[torch.Tensor] = None,
     flash_impl: Callable = _flash_attention_forward,
     flash_impl_head_bef_seq: bool = True,
-    repeat_kv: bool = True,
+    support_gqa: bool = True,
     **kwargs,
 ):
     """Insert all-to-all before and after flash attention.
@@ -109,7 +109,7 @@ def _ulysses_flash_attention_forward(
         torch.distributed.all_gather(position_ids_list, position_ids, group=get_ulysses_sequence_parallel_group())
         position_ids = torch.concat(position_ids_list, dim=-1)
 
-        if repeat_kv:
+        if not support_gqa:
             repeats = query_states.size(2) // key_states.size(2)
             key_states = repeat_kv(key_states, repeats)
             value_states = repeat_kv(value_states, repeats)
@@ -119,7 +119,7 @@ def _ulysses_flash_attention_forward(
             key_states = key_states.transpose(1, 2)
             value_states = value_states.transpose(1, 2)
     else:
-        if repeat_kv:
+        if not support_gqa:
             # transpose here really means hdim == 1
             assert flash_impl_head_bef_seq
             repeats = query_states.size(1) // key_states.size(1)
@@ -339,7 +339,7 @@ def apply_monkey_patch(
             flash_attention._flash_attention_forward = _ulysses_flash_attention_forward
             print(f"Monkey patch _flash_attention_forward in {flash_attention.__name__}")
 
-            patch_spda, repeat_kv, jagged = {
+            patch_spda, support_gqa, jagged = {
                 'DISABLED': (False, None, None),
                 'MASK': (True, True, False),
                 'JAGGED': (True, False, True),
@@ -444,7 +444,7 @@ def apply_monkey_patch(
                         scaling=scaling,
                         is_causal=is_causal,
                         flash_impl_head_bef_seq=True, # kernel takes h,s
-                        repeat_kv=repeat_kv,
+                        support_gqa=support_gqa,
                         **kwargs,
                     )
                     return out, None
