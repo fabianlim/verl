@@ -369,26 +369,44 @@ def apply_monkey_patch(
                         q: torch.Tensor,
                         k: torch.Tensor,
                         v: torch.Tensor,
+                        atten: torch.Tensor,
                         *args,
                         position_ids=None,
                         **kwargs,
                     ):
                         if not jagged:
-                            # only works for sp_size = 1 since 
-                            # we do not gather the attention mask
-                            assert ulysses_sp_size == 1
+                            rebuild_attn = False
+                            if ulysses_sp_size > 1:
+                                rebuild_attn = True
+                                assert position_ids is not None
+                                position_ids = position_ids.squeeze(0)
+                                blocks, = torch.where(position_ids == 0)
+                                blocks = blocks.tolist() + [position_ids.shape[-1]]
+                                chunks = torch.zeros(
+                                    [position_ids.shape[-1]], dtype=torch.int, 
+                                    device=position_ids.device
+                                )
+                                if len(blocks) > 2:
+                                    for i in range(1, len(blocks) -1 ):
+                                        chunks[blocks[i]:blocks[i+1]] = i
+
+                                atten = (position_ids[:, None] >= position_ids) * (chunks[:, None] == chunks)
+                                atten = atten[None, None:, :]
+
                             attn_output = torch.nn.functional.scaled_dot_product_attention(
                                 q,
                                 k,
                                 v,
-                                attn_mask=attention_mask,
+                                attn_mask=atten,
                                 dropout_p=dropout,
                                 scale=scaling,
-                                is_causal=attention_mask is None,
+                                is_causal=atten is None,
                                 enable_gqa=True
                             ) # b, h, s, d
 
                             attn_output = attn_output.transpose(1,2).contiguous()
+                            if rebuild_attn:
+                                del atten
                             return attn_output
 
                         from transformers.modeling_flash_attention_utils import  prepare_fa_kwargs_from_position_ids
