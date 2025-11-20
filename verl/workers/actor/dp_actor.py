@@ -447,10 +447,14 @@ class DataParallelPPOActor(BasePPOActor):
                     target_entropy = self.config.get("target_entropy", None)
                     entropy_coeff_delta = self.config.get("entropy_coeff_delta", None)
                     entropy_coeff_max = self.config.get("entropy_coeff_max", None)
+                    use_adaptive_entropy_adjustment = self.config.get("use_adaptive_entropy_adjustment", False)
                     if use_adaptive_entropy_adjustment:
                         assert target_entropy is not None, f"target_entropy must be provided if {use_adaptive_entropy_adjustment=}, but got None."
                         assert entropy_coeff_delta is not None, f"entropy_coeff_delta must be provided if {use_adaptive_entropy_adjustment=}, but got None."
                         assert entropy_coeff_max is not None, f"entropy_coeff_max must be provided if {use_adaptive_entropy_adjustment=}, but got None."
+
+                    use_entropy_loss_masking = self.config.get("use_entropy_loss_masking", False)
+                    entropy_mask_threshold = self.config.get("entropy_mask_threshold", None)
 
                     if self.config.use_dynamic_bsz:
                         loss_scale_factor = response_mask.shape[0] / self.config.ppo_mini_batch_size
@@ -459,11 +463,30 @@ class DataParallelPPOActor(BasePPOActor):
 
                     # all return: (bsz, response_length)
                     calculate_entropy = False
-                    if entropy_coeff != 0 or use_adaptive_entropy_adjustment:
+                    if (
+                        entropy_coeff != 0 or use_adaptive_entropy_adjustment
+                        or use_entropy_loss_masking
+                    ):
                         calculate_entropy = True
                     entropy, log_prob = self._forward_micro_batch(
                         model_inputs, temperature=temperature, calculate_entropy=calculate_entropy
                     )
+
+                    if use_entropy_loss_masking: 
+                        entropy_detach = entropy.detach()
+
+                        average_entropy = (entropy_detach * response_mask).mean(dim=-1)
+
+                        total_tokens = response_mask.sum(dim=-1).to(torch.float)
+                        # modify the response mask
+                        response_mask *= entropy_detach >= entropy_mask_threshold
+                        remaining_tokens = response_mask.sum(dim=-1).to(torch.float)
+
+                        metrics["actor/total_tokens"] = total_tokens.mean().item()
+                        metrics["actor/masked_tokens"] = total_tokens.mean().item() - remaining_tokens.mean().item()
+                        metrics["actor/micro_batch_entropy"] = average_entropy.mean().item()
+                        metrics["actor/entropy_mask_threshold"] = entropy_mask_threshold
+
 
                     loss_mode = self.config.policy_loss.get("loss_mode", "vanilla")
                     # vanilla -> verl.trainer.ppo.core_algos.compute_policy_loss_vanilla

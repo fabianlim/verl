@@ -87,6 +87,9 @@ use_adaptive_entropy_adjustment: False # adaptive entropy control in Skywork-OR1
 entropy_coeff_delta: 0.00005 # entropy_coeff_delta for adaptive entropy control in Skywork-OR1-32B
 entropy_coeff_max: 0.005 # entropy_coeff_max for adaptive entropy control in Skywork-OR1-32B
 
+use_entropy_loss_masking: False # mask losses using entropy
+entropy_mask_threshold: 0.0 # if lower than this threshold, do not include in loss
+
 # Whether to use torch.compile()
 # oc.select: the default val for ref.use_torch_compile
 use_torch_compile: true
