@@ -115,9 +115,11 @@ normalization_config = NormalizationConfig(
     equations=False,
 )
 
-gold_extraction_target=(LatexExtractionConfig(
-    normalization_config=normalization_config,
-))
+gold_extraction_target=(
+    LatexExtractionConfig(
+        normalization_config=normalization_config,
+    ),
+)
 pred_extraction_target=(
     ExprExtractionConfig(), 
     LatexExtractionConfig(
