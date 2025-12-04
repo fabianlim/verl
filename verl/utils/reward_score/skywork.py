@@ -134,7 +134,7 @@ def math_verify_reward_function(solution_str, ground_truth):
     
     # 0 in case parsing cannot be completed
     try:
-        math_verify_parsed = parse(solution_str, pred_extraction_target, parsing_timeout=5)
+        math_verify_parsed = parse(solution_str, pred_extraction_target, parsing_timeout=None)
     except Exception:
         return 0.0
     
@@ -150,9 +150,9 @@ def math_verify_reward_function(solution_str, ground_truth):
     for gt in ground_truth:
         try:
             if verify(
-                parse(f"\\boxed{{{gt}}}", gold_extraction_target, parsing_timeout=5),
+                parse(f"\\boxed{{{gt}}}", gold_extraction_target, parsing_timeout=None),
                 math_verify_parsed,
-                timeout_seconds=5,
+                timeout_seconds=None, # handle timeouts outside
             ):
                 return 1.0
         except Exception:

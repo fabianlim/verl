@@ -18,19 +18,22 @@ import torch
 
 from verl import DataProto
 from verl.workers.reward_manager import register
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed, TimeoutError
 from typing import List
 from tqdm import tqdm
 import numpy as np
 from verl.utils.reward_score.skywork import compute_score as skywork_compute_score
 
+from multiprocessing import Pool, TimeoutError as TimeoutErrorPool
+
 def parallel_compute_score(
     evaluation_func, 
     response_str, 
     ground_truth, 
-    timeout=6, 
+    timeout=5, 
     max_workers=64
 ):
+    print ("Using pool executor parallel compute")
 
     with tqdm(total=len(response_str)) as pbar:
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
@@ -44,11 +47,55 @@ def parallel_compute_score(
             }
             results = {}
             metadata = {}
-            for future in as_completed(futures):
-                index = futures[future]
-                results[index], metadata[index] = future.result()
+            for future in futures:
+
+                # https://stackoverflow.com/questions/6509261/how-to-use-concurrent-futures-with-timeouts
+                try:
+                    # blocks until result is available
+                    index = futures[future]
+                    results[index], metadata[index] = future.result(timeout=timeout)
+                except TimeoutError:
+                    results[index], metadata[index] = 0.0, (f'timeout in {timeout} s', )
+
                 pbar.update(1)
 
+    return [results[i] for i in range(len(response_str))]
+
+def parallel_compute_score_pool(
+    evaluation_func, 
+    response_str, 
+    ground_truth, 
+    timeout=5, 
+    max_workers=64
+):
+    print ("Using pool parallel compute")
+    with tqdm(total=len(response_str)) as pbar:
+        with Pool(processes=max_workers) as pool:
+            futures = {
+                pool.apply_async(
+                    evaluation_func, 
+                    (
+                        response_str[index], 
+                        ground_truth[index], 
+                    )
+                ): index
+                for index in range(len(response_str))
+            }
+            results = {}
+            metadata = {}
+
+            for future in futures:
+
+                try:
+                    # blocks until result is available
+                    index = futures[future]
+                    results[index], metadata[index] = future.get(timeout=timeout)
+                except TimeoutErrorPool:
+                    results[index], metadata[index] = 0.0, (f'timeout in {timeout} s', )
+                pbar.update(1)
+            
+            pool.terminate() # Kills all worker processes in the pool
+            pool.join() # Wait for worker processes to terminate
     return [results[i] for i in range(len(response_str))]
 
 @register("yr")
@@ -59,6 +106,7 @@ class YRRewardManager:
         compute_score=None, 
         overlong_buffer_cfg=None,
         max_resp_len=None,
+        use_pool=True,
         **kwargs,
     ) -> None:
         self.tokenizer = tokenizer
@@ -71,6 +119,12 @@ class YRRewardManager:
         # sample hits the max response len, we will 
         self.overlong_buffer_cfg = overlong_buffer_cfg
         self.max_resp_len = max_resp_len
+
+        self._parallel_compute_score = (
+            parallel_compute_score_pool if 
+            use_pool
+            else parallel_compute_score
+        )
 
     def __call__(self, data: DataProto, return_dict: bool = False):
         """We will expand this function gradually based on the available datasets"""
@@ -106,7 +160,7 @@ class YRRewardManager:
                 cur_response_str = response_str[i:i+batch_size]
                 cur_ground_truth = ground_truth[i:i+batch_size]
 
-                cur_scores = parallel_compute_score(
+                cur_scores = self._parallel_compute_score(
                         self.compute_score,
                         cur_response_str,
                         cur_ground_truth,
