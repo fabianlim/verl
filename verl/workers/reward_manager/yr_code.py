@@ -24,7 +24,7 @@ from tqdm import tqdm
 import numpy as np
 from verl.utils.reward_score.skywork import compute_score as skywork_compute_score
 
-from multiprocessing import Pool, TimeoutError as TimeoutErrorPool
+from multiprocessing import TimeoutError as TimeoutErrorPool, get_context
 
 def parallel_compute_score(
     evaluation_func, 
@@ -70,7 +70,7 @@ def parallel_compute_score_pool(
 ):
     print ("Using pool parallel compute")
     with tqdm(total=len(response_str)) as pbar:
-        with Pool(processes=max_workers) as pool:
+        with get_context('spawn').Pool(processes=max_workers) as pool:
             futures = {
                 pool.apply_async(
                     evaluation_func, 
@@ -164,6 +164,7 @@ class YRRewardManager:
                         self.compute_score,
                         cur_response_str,
                         cur_ground_truth,
+                        max_workers=5, # not too big
                     )
 
                 scores += cur_scores
