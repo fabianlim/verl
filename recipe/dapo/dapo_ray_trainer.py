@@ -165,6 +165,23 @@ class RayDAPOTrainer(RayPPOTrainer):
                     new_batch = new_batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=True)
                     new_batch = new_batch.union(gen_batch_output)
 
+                    # Log rollout generations in the trial batches 
+                    rollout_data_dir = self.config.trainer.get("rollout_data_dir", None)
+                    if rollout_data_dir:
+                        with marked_timer("pre_dump_rollout_generations", timing_raw, color="green"):
+                            inputs = self.tokenizer.batch_decode(new_batch.batch["prompts"], skip_special_tokens=True)
+                            outputs = self.tokenizer.batch_decode(new_batch.batch["responses"], skip_special_tokens=True)
+                            gts = new_batch.non_tensor_batch['reward_model'].tolist()
+                            self._dump_generations(
+                                inputs=inputs,
+                                outputs=outputs,
+                                gts=gts,
+                                scores=None,
+                                reward_extra_infos_dict=None,
+                                dump_path=f'{rollout_data_dir}_dapo',
+                                filename=f'{self.global_steps}_{num_gen_batches}.jsonl',
+                            )
+
                     with marked_timer("reward", timing_raw, "yellow"):
                         # compute scores. Support both model and function-based.
                         # We first compute the scores using reward model. Then, we call reward_fn to combine
