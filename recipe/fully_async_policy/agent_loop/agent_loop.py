@@ -209,13 +209,18 @@ class FullyAsyncAgentLoopWorker(AgentLoopWorkerBase):
 
 
 class FullyAsyncAgentLoopManager(AgentLoopManager):
-    def __init__(self, config: DictConfig, worker_group: RayWorkerGroup = None, rm_wg: RayWorkerGroup = None):
+    def __init__(
+        self, config: DictConfig, worker_group: RayWorkerGroup = None, rm_wg: RayWorkerGroup = None,
+        resource_pool=None, mode: str = None,
+    ):
         self.config = config
         self.worker_group = worker_group
         self.reward_model_manager = None
         self.reward_router_address = None
         self.agent_loop_workers_class = FullyAsyncAgentLoopWorker
         self.rollout_replica_class = FullyAsyncvLLMReplica
+        self.resource_pool = resource_pool
+        self.mode = mode
 
         self.rm_wg = rm_wg
         self.rollout_replicas = None
@@ -224,8 +229,11 @@ class FullyAsyncAgentLoopManager(AgentLoopManager):
         self.agent_loop_workers = None
 
     @classmethod
-    async def create(cls, config: DictConfig, worker_group: RayWorkerGroup = None, rm_wg: RayWorkerGroup = None):
-        instance = cls(config, worker_group, rm_wg)
+    async def create(
+        cls, config: DictConfig, worker_group: RayWorkerGroup = None, rm_wg: RayWorkerGroup = None,
+        resource_pool=None, mode=None,
+    ):
+        instance = cls(config, worker_group, rm_wg, resource_pool, mode)
         await instance._async_init()
         return instance
 
@@ -264,9 +272,19 @@ class FullyAsyncAgentLoopManager(AgentLoopManager):
             for replica_rank in range(num_replicas)
         ]
 
-        if self.worker_group:
+        if self.mode == 'standalone2':
+            # await asyncio.gather(*[server.init_standalone(self.resource_pool) for server in self.rollout_replicas])
+            print ("standalone with worker group")
+            await asyncio.gather(*[server.init_standalone2(worker_group=self.worker_group) for server in self.rollout_replicas])
+        elif self.mode == 'collocate':
+            print ("collocated with resoure pool")
+            await asyncio.gather(*[server.init_colocated(resource_pool=self.resource_pool, worker_group=self.worker_group) for server in self.rollout_replicas])
+        elif self.mode == 'hybrid':
+        # if self.worker_group:
+            print ("hybrid")
             await asyncio.gather(*[server.init_hybrid(self.worker_group) for server in self.rollout_replicas])
-        else:
+        elif self.mode == 'standalone':
+            print ("original standalone")
             await asyncio.gather(*[server.init_standalone() for server in self.rollout_replicas])
 
         self.server_handles = [server._server_handle for server in self.rollout_replicas]

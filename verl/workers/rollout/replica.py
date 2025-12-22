@@ -134,7 +134,7 @@ class RolloutReplica(ABC):
         await self.launch_servers()
 
     # TODO(sgm): this should be the default solution, but need to make the RolloutMode more clear.
-    async def init_colocated(self, resource_pool: RayResourcePool):
+    async def init_colocated(self, resource_pool: RayResourcePool, worker_group: RayWorkerGroup):
         """Init colocated rollout server, rollout engine and hybrid engine colocated in same ray placement group
         but in separate processes.
 
@@ -152,7 +152,9 @@ class RolloutReplica(ABC):
             if not self.is_reward_model
             else f"rollout_reward_colocate_{self.replica_rank}",
         )
-        self.workers = worker_group.workers
+        self.workers = worker_group.workers[
+            self.world_size * self.replica_rank : self.world_size * (self.replica_rank + 1)
+        ]
         await self.launch_servers()
 
     async def init_standalone(self):
@@ -182,6 +184,31 @@ class RolloutReplica(ABC):
             else f"rollout_reward_standalone_{self.replica_rank}",
         )
         self.workers = worker_group.workers
+        await self.launch_servers()
+    
+    async def init_standalone2(self, worker_group: RayWorkerGroup = None):
+        """Init standalone rollout server, create new resource pool for this rollout."""
+        # create resource pool for this rollout
+        self.rollout_mode = RolloutMode.STANDALONE
+
+        if worker_group is None:
+            self.resource_pool = resource_pool
+
+            # create worker group for this rollout
+            worker_group = RayWorkerGroup(
+                resource_pool=self.resource_pool,
+                ray_cls_with_init=self.get_ray_class_with_init_args(),
+                bin_pack=False,
+                name_prefix=f"rollout_standalone_{self.replica_rank}"
+                if not self.is_reward_model
+                else f"rollout_reward_standalone_{self.replica_rank}",
+            )
+        else:
+            pass
+
+        self.workers = worker_group.workers[
+            self.world_size * self.replica_rank : self.world_size * (self.replica_rank + 1)
+        ]
         await self.launch_servers()
 
     @abstractmethod

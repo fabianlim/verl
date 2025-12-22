@@ -343,10 +343,13 @@ class FullyAsyncRollouter(FullyAsyncRayPPOTrainer):
 
     def _create_actor_rollout_classes(self):
         # only create rollout
+        # from verl.workers.rollout.vllm_rollout import vLLMAsyncRollout
+        # _rollout_worker_actor_cls = ray.remote(vLLMAsyncRollout)
         for role in [Role.Rollout]:
             resource_pool = self.resource_pool_manager.get_resource_pool(role)
             role_cls = RayClassWithInitArgs(
                 cls=self.role_worker_mapping[role],
+                # cls=_rollout_worker_actor_cls,
                 config=self.config.actor_rollout_ref,
                 role=str(role),
             )
@@ -372,9 +375,14 @@ class FullyAsyncRollouter(FullyAsyncRayPPOTrainer):
         from recipe.fully_async_policy.agent_loop import FullyAsyncAgentLoopManager
 
         self.async_rollout_mode = True
+        resource_pool = self.resource_pool_manager.get_resource_pool(Role.Rollout)
         self.async_rollout_manager = await FullyAsyncAgentLoopManager.create(
             config=self.config,
             worker_group=self.rollout_wg,
+            resource_pool=resource_pool,
+            # mode="standalone2"
+            mode='collocate',
+            # mode='hybrid'
         )
 
     # Add samples to the pending_queue
