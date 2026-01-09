@@ -626,18 +626,18 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
         log_gpu_memory_usage(f"After building {self.config.rollout.name} rollout", logger=logger)
 
         # Full params
-        if torch.distributed.get_world_size() == 1 and fsdp_version(self.actor_module_fsdp) == 1:
-            FSDP.set_state_dict_type(
-                self.actor_module_fsdp,
-                state_dict_type=StateDictType.FULL_STATE_DICT,
-                state_dict_config=FullStateDictConfig(),
-            )
-        elif fsdp_version(self.actor_module_fsdp) == 1:
-            FSDP.set_state_dict_type(
-                self.actor_module_fsdp,
-                state_dict_type=StateDictType.SHARDED_STATE_DICT,
-                state_dict_config=ShardedStateDictConfig(),
-            )
+        # if torch.distributed.get_world_size() == 1 and fsdp_version(self.actor_module_fsdp) == 1:
+        #     FSDP.set_state_dict_type(
+        #         self.actor_module_fsdp,
+        #         state_dict_type=StateDictType.FULL_STATE_DICT,
+        #         state_dict_config=FullStateDictConfig(),
+        #     )
+        # elif fsdp_version(self.actor_module_fsdp) == 1:
+        #     FSDP.set_state_dict_type(
+        #         self.actor_module_fsdp,
+        #         state_dict_type=StateDictType.SHARDED_STATE_DICT,
+        #         state_dict_config=ShardedStateDictConfig(),
+        #     )
 
         # used for LoRA
         self.base_sync_done: bool = "dummy" not in self.config.rollout.load_format
@@ -764,7 +764,8 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
         use_shm = self.config.model.get("use_shm", False)
         use_fused_kernels = self.config.model.get("use_fused_kernels", False)
 
-        if self._is_actor or self._is_rollout:
+        # if self._is_actor or self._is_rollout:
+        if self._is_actor:
             # we need the model for actor and rollout
             if self._is_actor:
                 optim_config = self.config.actor.optim
@@ -850,18 +851,18 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
                 checkpoint_config=self.config.actor.checkpoint,
             )
 
-        if not self._is_actor and self._is_rollout:
-            # If ActorRolloutRefWorker is initialized as a standalone rollout,
-            # create a checkpoint manager for FSDP model to allow loading FSDP checkpoints for rollout.
+        # if not self._is_actor and self._is_rollout:
+        #     # If ActorRolloutRefWorker is initialized as a standalone rollout,
+        #     # create a checkpoint manager for FSDP model to allow loading FSDP checkpoints for rollout.
 
-            checkpoint_contents = OmegaConf.create({"load_contents": ["model"], "save_contents": []})
-            self.checkpoint_manager = FSDPCheckpointManager(
-                model=self.actor_module_fsdp,
-                optimizer=None,
-                lr_scheduler=None,
-                processing_class=self.processor if self.processor is not None else self.tokenizer,
-                checkpoint_config=checkpoint_contents,
-            )
+        #     checkpoint_contents = OmegaConf.create({"load_contents": ["model"], "save_contents": []})
+        #     self.checkpoint_manager = FSDPCheckpointManager(
+        #         model=self.actor_module_fsdp,
+        #         optimizer=None,
+        #         lr_scheduler=None,
+        #         processing_class=self.processor if self.processor is not None else self.tokenizer,
+        #         checkpoint_config=checkpoint_contents,
+        #     )
 
     @register(dispatch_mode=make_nd_compute_dataproto_dispatch_fn(mesh_name="actor"))
     @DistProfiler.annotate(color="red", role="actor_update")
