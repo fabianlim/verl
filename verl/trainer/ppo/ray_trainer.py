@@ -436,7 +436,7 @@ class RayPPOTrainer:
         base_data = {
             "input": inputs,
             "output": outputs,
-            "gts": gts,
+            # "gts": gts, # FIXME
             "score": scores,
             "step": [self.global_steps] * n,
         }
