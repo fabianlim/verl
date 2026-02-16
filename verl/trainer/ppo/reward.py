@@ -158,7 +158,6 @@ def load_reward_manager(
             type[AbstractRewardManager],
             load_extern_object(module_path=module_cfg.path, object_name=reward_manager_cls_name),
         )
-        # reward_manager_cls = load_extern_object(module_path=module_cfg.path, object_name=reward_manager_cls_name)
 
     if compute_score is None:
         sandbox_config = config.reward_model.get("sandbox_fusion")
