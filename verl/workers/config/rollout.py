@@ -169,6 +169,8 @@ class RolloutConfig(BaseConfig):
 
     agent: AgentLoopConfig = field(default_factory=AgentLoopConfig)
 
+    custom_agent_loop_manager: Optional[str] = None
+
     trace: TraceConfig = field(default_factory=TraceConfig)
 
     multi_turn: MultiTurnConfig = field(default_factory=MultiTurnConfig)

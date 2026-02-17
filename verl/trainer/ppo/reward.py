@@ -36,6 +36,8 @@ if TYPE_CHECKING:
     from verl.trainer.config.config import ModuleConfig, RewardManagerConfig
     from verl.workers.reward_manager.abstract import AbstractRewardManager, RawRewardFn
 else:
+    # this is needed for the importlib path
+    from verl.workers.reward_manager.abstract import AbstractRewardManager
     try:
         from verl.experimental.reward.reward_loop.base import RewardLoopManagerBase
     except ImportError:
